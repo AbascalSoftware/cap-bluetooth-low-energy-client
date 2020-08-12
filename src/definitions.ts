@@ -28,7 +28,7 @@ export interface BluetoothLEClientPlugin extends WebPlugin {
 	isEnabled(): Promise<BluetoothGATTEnabledResult>;
 	read(options: BluetoothGATTCharacteristicReadOptions): Promise<BluetoothGATTCharacteristicReadResult>;
 	readDescriptor(options: BluetoothGATTDescriptorReadOptions): Promise<BluetoothGATTDescriptorReadResult>;
-	refreshCache(): Promise<any>;
+	refreshCache(options: RefreshCacheOptions): Promise<any>;
 	scan(options: BluetoothGATTScanOptions): Promise<BluetoothGATTScanResults>;
 	write(options: BluetoothGATTCharacteristicWriteOptions): Promise<BluetoothGATTCharacteristicWriteResult>;
 	writeDescriptor(options: BluetoothGATTDescriptorWriteOptions): Promise<BluetoothGATTDescriptorWriteResult>;
@@ -214,3 +214,6 @@ export interface HasPermissionsResult {
 	isAllowed: boolean
 }
 
+export interface RefreshCacheOptions {
+	id: string
+}

@@ -1057,6 +1057,38 @@ public class BluetoothLEClient extends Plugin {
 	}
 
 	@PluginMethod()
+	public void refreshCache(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
+			return;
+		}
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
+			return;
+		}
+		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		int callbackDelay = call.getInt("delay",5000);
+		gattRefresh(gatt);
+		Handler handler = new Handler();
+		handler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				Log.d(getLogTag(),"refreshCache delayed run...");
+				PluginCall call = getSavedCall();
+				if(call == null){
+					Log.d(getLogTag(),"refreshCache call null...");
+					return;
+				}
+				Log.d(getLogTag(),"refreshCache call existe...");
+				call.resolve();
+			}
+		},callbackDelay);
+		saveCall(call);
+	}
+
+	@PluginMethod()
 	public void scan(PluginCall call) {
 		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
 		availableDevices = new HashMap<String, BluetoothDevice>();
@@ -1401,18 +1433,18 @@ public class BluetoothLEClient extends Plugin {
 		obj.put(key, value);
 	}
 
-	private void refreshCache(BluetoothGatt gatt){
+	private void gattRefresh(BluetoothGatt gatt){
 		try {
-			Log.d(getLogTag(),"refreshCache 01");
+			Log.d(getLogTag(),"gattRefresh 01");
 			final Method refresh = gatt.getClass().getMethod("refresh");
-			Log.d(getLogTag(),"refreshCache 02");
+			Log.d(getLogTag(),"gattRefresh 02");
 			if (refresh != null) {
-				Log.d(getLogTag(),"refreshCache 03");
+				Log.d(getLogTag(),"gattRefresh 03");
 				refresh.invoke(gatt);
-				Log.d(getLogTag(),"refreshCache 04");
+				Log.d(getLogTag(),"gattRefresh 04");
 			}
 		} catch(Exception ex) {
-			Log.e(getLogTag(),"refreshCache Exception: ");
+			Log.e(getLogTag(),"gattRefresh Exception: ");
 			ex.printStackTrace();
 		}
 	}

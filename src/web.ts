@@ -30,7 +30,8 @@ import {
 	GetCharacteristicResult,
 	GetServiceOptions,
 	GetServiceResult,
-	HasPermissionsResult
+	HasPermissionsResult,
+	RefreshCacheOptions
 } from './definitions';
 import { get16BitUUID } from "./utils/utils";
 import { BluetoothGATTCharacteristics } from "./utils/ble-gatt-characteristics.enum";
@@ -79,7 +80,7 @@ export class BluetoothLEClientWeb extends WebPlugin implements BluetoothLEClient
 		return { enabled };
 	}
 
-	async refreshCache(): Promise<any> {
+	async refreshCache(options: RefreshCacheOptions): Promise<any> {
 		return {};
 	}
 
