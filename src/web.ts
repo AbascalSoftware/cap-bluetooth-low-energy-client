@@ -7,6 +7,7 @@ import {
   BluetoothGATTCharacteristicWriteResult,
   BluetoothGATTConnectOptions,
   BluetoothGATTConnectResult,
+  BluetoothGATTConnectedResult,
   BluetoothGATTDescriptorReadOptions,
   BluetoothGATTDescriptorReadResult,
   BluetoothGATTDescriptorWriteOptions,
@@ -17,6 +18,7 @@ import {
   BluetoothGATTEnabledResult,
   BluetoothGATTEnableNotificationsResult,
   BluetoothGATTEnableResult,
+  BluetoothGATTisConnectedOptions,
   BluetoothGATTNotificationOptions,
   BluetoothGATTScanOptions,
   BluetoothGATTScanResults,
@@ -27,7 +29,8 @@ import {
   GetCharacteristicOptions,
   GetCharacteristicResult,
   GetServiceOptions,
-  GetServiceResult
+  GetServiceResult,
+  HasPermissionsResult
 } from './definitions';
 import {get16BitUUID} from "./utils/utils";
 import {BluetoothGATTCharacteristics} from "./utils/ble-gatt-characteristics.enum";
@@ -51,9 +54,21 @@ export class BluetoothLEClientWeb extends WebPlugin implements BluetoothLEClient
   /**
    * Returns {isAvailable: true} by default since there is no proper way to check whether Bluetooth is available
    */
+
+  
+  async hasPermissions(): Promise<HasPermissionsResult> {
+    const isAllowed = true;
+    return {isAllowed};
+  }
+
   async isAvailable(): Promise<BluetoothGATTAvailabilityResult> {
     const isAvailable = true;
     return {isAvailable};
+  }
+
+  async isConnected(options: BluetoothGATTisConnectedOptions): Promise<BluetoothGATTConnectedResult>{
+    const connected = true;
+    return {connected};
   }
 
   /**

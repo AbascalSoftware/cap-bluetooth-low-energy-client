@@ -78,6 +78,8 @@ export enum BluetoothGATTServices{
 
     USER_DATA = 0x181C,
 
-    WEIGHT_SCALE = 0x181D
+    WEIGHT_SCALE = 0x181D,
+
+    PURIFICATTA = 0xCCCF
 
 }
