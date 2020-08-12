@@ -33,6 +33,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import org.json.JSONException;
 import java.lang.Exception;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
