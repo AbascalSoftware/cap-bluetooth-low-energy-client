@@ -25,18 +25,14 @@ import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
-
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.NativePlugin;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-
 import org.json.JSONException;
-
 import java.lang.Exception;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -117,7 +113,6 @@ public class BluetoothLEClient extends Plugin {
 	static final String keyErrorValueWrite = "Failed to write value";
 	static final String keyErrorValueRead = "Failed to read value";
 
-
 	static final String keyOperationConnect = "connectCallback";
 	static final String keyOperationDisconnect = "disconnectCallback";
 	static final String keyOperationDiscover = "discoverCallback";
@@ -155,17 +150,12 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"CONNECTION STATE CHANGE: "+String.valueOf(newState));
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 			if (connection == null) {
 				return;
 			}
-
 			if (status == BluetoothGatt.GATT_SUCCESS) {
-
 				switch (newState) {
-
 					case BluetoothProfile.STATE_CONNECTING: {
 						connection.put(keyConnectionState, BluetoothProfile.STATE_CONNECTING);
 						break;
@@ -225,43 +215,28 @@ public class BluetoothLEClient extends Plugin {
 						break;
 					}
 				}
-
 			} else {
-
-
 				if (connection.get(keyOperationConnect) != null) {
-
 					PluginCall call = (PluginCall) connection.get(keyOperationConnect);
-
 					call.error("Unable to connect to Peripheral");
 					connection.remove(keyOperationConnect);
 					return;
-
 				} else if (connection.get(keyOperationDisconnect) != null) {
-
 					PluginCall call = (PluginCall) connection.get(keyOperationDisconnect);
-
 					call.error("Unable to disconnect from Peripheral");
 					connection.remove(keyOperationDisconnect);
-
 					return;
-
 				} else {
-
 					Log.e(getLogTag(), "GATT operation unsuccessfull");
 					return;
-
 				}
-
 			}
 		}
 
 		@Override
 		public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
 			if(connection == null){
 				Log.e(getLogTag(),"No connection");
@@ -343,24 +318,18 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"onCharacteristicRead...");
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 			if (connection == null) {
 				Log.e(getLogTag(), "No connection found");
 				return;
 			}
-
 			PluginCall call = (PluginCall) connection.get(keyOperationRead);
 			connection.remove(keyOperationRead);
-
 			if (call == null) {
 				Log.e(getLogTag(), "No callback for operation found");
 				return;
 			}
-
 			JSObject ret = new JSObject();
-
 			if (status == BluetoothGatt.GATT_SUCCESS) {
 				byte[] characteristicValue = characteristic.getValue();
 				int[] arr = new int[characteristicValue.length];
@@ -378,7 +347,6 @@ public class BluetoothLEClient extends Plugin {
 			} else {
 				call.error(keyErrorValueRead);
 			}
-
 		}
 
 		@Override
@@ -386,26 +354,19 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"onCharacteristicWrite...");
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 			if (connection == null) {
 				Log.e(getLogTag(), "No connection found");
 				return;
 			}
-
 			PluginCall call = (PluginCall) connection.get(keyOperationWrite);
 			connection.remove(keyOperationWrite);
-
 			if (call == null) {
 				Log.e(getLogTag(), "No callback for operation found");
 				return;
 			}
-
 			JSObject ret = new JSObject();
-
 			if (status == BluetoothGatt.GATT_SUCCESS) {
-
 				byte[] value = characteristic.getValue();
 				Log.d(getLogTag(),"onCharacteristicWrite SUCCESS");
 				Log.d(getLogTag(),"onCharacteristicWrite c.getValue: "+characteristic.getValue().toString());
@@ -424,24 +385,16 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"onCharacteristicChanged... characteristic: "+characteristic.getUuid().toString());
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			UUID characteristicUuid = characteristic.getUuid();
-
 			BluetoothGattService service = characteristic.getService();
 			UUID serviceUuid = service.getUuid();
-
 			byte[] characteristicValue = characteristic.getValue();
-
-
 			Integer characteristic16BitUuid = get16BitUUID(characteristicUuid);
-
 			if (characteristic16BitUuid == null) {
 				return;
 			}
-
 			JSObject ret = new JSObject();
 			addProperty(ret, keyValue, JSArray.from(characteristicValue));
-
 			notifyListeners(characteristic16BitUuid.toString(), ret);
 			if(currentOperation == "write"){
 				Log.d(getLogTag(),"AQUI RETORNARIA DO WRITE...");
@@ -450,71 +403,48 @@ public class BluetoothLEClient extends Plugin {
 
 		@Override
 		public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 			if (connection == null) {
 				return;
 			}
-
 			PluginCall call = (PluginCall) connection.get(keyOperationReadDescriptor);
-
 			if (call == null) {
 				return;
 			}
-
 			if (status == BluetoothGatt.GATT_SUCCESS) {
-
 				JSObject ret = new JSObject();
-
 				byte[] value = descriptor.getValue();
 				addProperty(ret, keyValue, JSArray.from(value));
-
 				call.resolve(ret);
 			} else {
 				call.error(keyErrorValueRead);
 			}
-
 			connection.remove(keyOperationReadDescriptor);
-
 		}
 
 		@Override
 		public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
-
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 			if (connection == null) {
 				return;
 			}
-
 			PluginCall call = (PluginCall) connection.get(keyOperationWriteDescriptor);
-
 			if (call == null) {
 				return;
 			}
-
 			byte[] value = descriptor.getValue();
-
 			JSObject ret = new JSObject();
-
 			if (status == BluetoothGatt.GATT_SUCCESS) {
-
 				addProperty(ret, keyValue, JSArray.from(value));
 				call.resolve(ret);
-
 			} else {
 				call.error(keyErrorValueWrite);
 			}
-
 			connection.remove(keyOperationWriteDescriptor);
-
 		}
 
 		@Override
@@ -590,7 +520,6 @@ public class BluetoothLEClient extends Plugin {
 				}
 			}
 			return;
-
 		}
 
 		@Override
@@ -604,129 +533,6 @@ public class BluetoothLEClient extends Plugin {
 	protected void handleOnStart() {
 		BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
 		bluetoothAdapter = bluetoothManager.getAdapter();
-	}
-
-	@PluginMethod()
-	public void hasPermissions(PluginCall call){
-		if (!hasRequiredPermissions()) {
-			saveCall(call);
-			pluginRequestAllPermissions();
-		}else{
-			JSObject ret = new JSObject();
-			ret.put("isAllowed",true);
-			call.resolve(ret);
-		}
-	}
-
-	@PluginMethod()
-	public void isAvailable(PluginCall call) {
-
-		JSObject ret = new JSObject();
-
-		if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-			ret.put(keyAvailable, true);
-			call.resolve(ret);
-		} else {
-			ret.put(keyAvailable, false);
-			call.resolve(ret);
-		}
-	}
-
-	@PluginMethod()
-	public void isConnected(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if(connection != null){
-			Log.d(getLogTag(),"CONNECT 04.1");
-			Log.d(getLogTag(),"CONNECTION: "+connection.toString());
-			boolean isAlreadyConnected = (Integer) connection.get(keyConnectionState) == BluetoothProfile.STATE_CONNECTED;
-			boolean servicesDiscovered = (Integer) connection.get(keyDiscovered) == SERVICES_DISCOVERED;
-
-			if(isAlreadyConnected && servicesDiscovered ){
-				JSObject ret = new JSObject();
-				addProperty(ret, keyConnected, true);
-				call.resolve(ret);
-				return;
-			}
-		}
-		Log.d(getLogTag(),"NAO ESTA CONECTADO...");
-		call.reject(keyErrorNotConnected);
-
-		/*JSObject ret = new JSObject();
-
-		if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-			ret.put(keyAvailable, true);
-			call.resolve(ret);
-		} else {
-			ret.put(keyAvailable, false);
-			call.resolve(ret);
-		}*/
-	}
-
-	@PluginMethod()
-	public void isEnabled(PluginCall call) {
-
-		JSObject ret = new JSObject();
-
-		if (bluetoothAdapter.isEnabled()) {
-			ret.put(keyEnabled, true);
-			call.resolve(ret);
-		} else {
-			ret.put(keyEnabled, false);
-			call.resolve(ret);
-		}
-	}
-
-	@PluginMethod()
-	public void enable(PluginCall call) {
-
-		if (!bluetoothAdapter.isEnabled()) {
-			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-			startActivityForResult(call, enableIntent, REQUEST_ENABLE_BT);
-		}
-	}
-
-	@PluginMethod()
-	public void scan(PluginCall call) {
-
-		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
-		availableDevices = new HashMap<String, BluetoothDevice>();
-
-		scanCallback = new BLEScanCallback();
-
-		ScanSettings settings = new ScanSettings.Builder()
-				.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-				.build();
-
-
-		ArrayList<UUID> uuids = getServiceUuids(call.getArray(keyServices));
-
-		List<ScanFilter> filters = new ArrayList<ScanFilter>();
-
-		for (UUID uuid : uuids) {
-			Log.d(getLogTag(),"UUID FOR FILTER: "+uuid.toString());
-			ParcelUuid parcelUuid = new ParcelUuid(uuid);
-			ScanFilter filter = new ScanFilter.Builder().setServiceUuid(parcelUuid).build();
-			//filters.add(filter);
-		}
-
-		filters = new ArrayList<>();
-
-		bleScanner.startScan(filters, settings, scanCallback);
-
-		Handler handler = new Handler();
-		handler.postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				Log.d(getLogTag(),"Chamando stop scan de scan()");
-				BluetoothLEClient.this.stopScan(true);
-			}
-		},2000);
-		saveCall(call);
 	}
 
 	@PluginMethod()
@@ -757,30 +563,16 @@ public class BluetoothLEClient extends Plugin {
 		Log.d(getLogTag(),"PLUGIN CONNECT 03");
 		saveCall(call);
 		this.deviceToDiscover = new BLEDevice(name,serviceUUID,characteristicUUID);
-
 		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
 		availableDevices = new HashMap<String, BluetoothDevice>();
-
 		scanCallback = new BLEScanCallback();
 		Log.d(getLogTag(),"PLUGIN CONNECT 04");
 		ScanSettings settings = new ScanSettings.Builder()
 				.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
 				.build();
-		//ArrayList<UUID> uuids = getServiceUuids(call.getArray(keyServices));
-		List<UUID> serviceUUIDs = new ArrayList<UUID>();
-		serviceUUIDs.add(serviceUUID);
-		List<ScanFilter> filters = new ArrayList<ScanFilter>();
-		//filters.add(serviceUUID);
-		for (UUID uuid : serviceUUIDs) {
-			Log.d(getLogTag(),"UUID FOR FILTER: "+uuid.toString());
-			ParcelUuid parcelUuid = new ParcelUuid(uuid);
-			ScanFilter filter = new ScanFilter.Builder().setServiceUuid(parcelUuid).build();
-			//filters.add(filter);
-		}
 		Log.d(getLogTag(),"PLUGIN CONNECT 05");
-		//filters = new ArrayList<>();
 		currentOperation = "connect";
-		bleScanner.startScan(filters, settings, scanCallback);
+		bleScanner.startScan(new ArrayList<>(), settings, scanCallback);
 		shouldStopForTimeout = true;
 		Handler handler = new Handler();
 		handler.postDelayed(new Runnable() {
@@ -794,55 +586,66 @@ public class BluetoothLEClient extends Plugin {
 			}
 		},connectTimeout);
 		Log.d(getLogTag(),"PLUGIN CONNECT 06");
-		//Handler handler = new Handler();
-		//handler.postDelayed(this::stopScan, connectTimeout);
-		/*Log.d(getLogTag(),"CONNECT 01");
+	}
+
+	@PluginMethod()
+	public void disableNotifications(PluginCall call) {
 		String address = call.getString(keyAddress);
-		Log.d(getLogTag(),"CONNECT 02");
 		if (address == null) {
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
-		Log.d(getLogTag(),"CONNECT 03");
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		Log.d(getLogTag(),"CONNECT 04");
-		if(connection != null){
-			Log.d(getLogTag(),"CONNECT 04.1");
-			Log.d(getLogTag(),"CONNECTION: "+connection.toString());
-			boolean isAlreadyConnected = (Integer) connection.get(keyConnectionState) == BluetoothProfile.STATE_CONNECTED;
-			boolean servicesDiscovered = (Integer) connection.get(keyDiscovered) == SERVICES_DISCOVERED;
-
-			if(isAlreadyConnected && servicesDiscovered ){
-				JSObject ret = new JSObject();
-				addProperty(ret, keyConnected, true);
-				call.resolve(ret);
-				return;
-			}
-
-			connections.remove(address);
-		}
-		Log.d(getLogTag(),"CONNECT 05");
-
-		BluetoothDevice bluetoothDevice = bluetoothAdapter.getRemoteDevice(address);
-		Log.d(getLogTag(),"CONNECT 06");
-		if (bluetoothDevice == null) {
-			call.reject("Device not found");
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
 			return;
 		}
-		Log.d(getLogTag(),"CONNECT 07");
-		Boolean autoConnect = call.getBoolean(keyAutoConnect);
-		autoConnect = autoConnect == null ? false : autoConnect;
-
-		Log.d(getLogTag(),"CONNECT 08");
-		HashMap<String, Object> con = new HashMap<>();
-		con.put(keyDiscovered, SERVICES_UNDISCOVERED);
-		con.put(keyOperationConnect, call);
-		Log.d(getLogTag(),"CONNECT 09");
-		BluetoothGatt gatt = bluetoothDevice.connectGatt(getContext(), autoConnect, bluetoothGattCallback);
-		Log.d(getLogTag(),"CONNECT 10");
-		con.put(keyPeripheral, gatt);
-		connections.put(address, con);
-		Log.d(getLogTag(),"CONNECT 11");*/
+		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		Integer propertyService = call.getInt(keyService);
+		if (propertyService == null) {
+			call.reject(keyErrorServiceMissing);
+			return;
+		}
+		UUID serviceUuid = get128BitUUID(propertyService);
+		BluetoothGattService service = gatt.getService(serviceUuid);
+		if (service == null) {
+			call.reject(keyErrorServiceNotFound);
+			return;
+		}
+		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
+		if (propertyCharacteristic == null) {
+			call.reject(keyErrorCharacteristicMissing);
+			return;
+		}
+		UUID characteristicUuid = get128BitUUID(propertyCharacteristic);
+		BluetoothGattCharacteristic characteristic = service.getCharacteristic(characteristicUuid);
+		if (characteristic == null) {
+			call.reject(keyErrorCharacteristicNotFound);
+			return;
+		}
+		UUID clientCharacteristicConfDescriptorUuid = get128BitUUID(clientCharacteristicConfigurationUuid);
+		BluetoothGattDescriptor notificationDescriptor = characteristic.getDescriptor(clientCharacteristicConfDescriptorUuid);
+		if (notificationDescriptor == null) {
+			call.reject(keyErrorDescriptorNotFound);
+			return;
+		}
+		boolean notificationUnset = gatt.setCharacteristicNotification(characteristic, false);
+		if (!notificationUnset) {
+			call.reject("Unable to unset characteristic notification");
+			return;
+		}
+		boolean result = notificationDescriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
+		if (!result) {
+			call.reject(keyErrorValueSet);
+			return;
+		}
+		connection.put(keyOperationWriteDescriptor, call);
+		result = gatt.writeDescriptor(notificationDescriptor);
+		if (!result) {
+			connection.remove(keyOperationWriteDescriptor);
+			call.reject(keyErrorValueWrite);
+			return;
+		}
 	}
 
 	@PluginMethod()
@@ -868,106 +671,89 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void discover(PluginCall call) {
-
 		String address = call.getString(keyAddress);
-
 		if (address == null) {
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
-
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 		if (connection == null) {
 			call.reject(keyErrorNotConnected);
 			return;
 		}
-
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-
 		boolean discoveryStarted = gatt.discoverServices();
-
 		if (discoveryStarted) {
 			connection.put(keyDiscovered, SERVICES_DISCOVERING);
 			connection.put(keyOperationDiscover, call);
 		} else {
 			call.reject("Failed to start service discovery");
 		}
+	}
 
+	@PluginMethod()
+	public void enable(PluginCall call) {
+		if (!bluetoothAdapter.isEnabled()) {
+			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			startActivityForResult(call, enableIntent, REQUEST_ENABLE_BT);
+		}
 	}
 
 	@PluginMethod()
 	public void enableNotifications(PluginCall call) {
 		Log.d(getLogTag(),"enableNotifications 01");
 		String address = call.getString(keyAddress);
-
 		if (address == null) {
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
 		Log.d(getLogTag(),"address: "+address);
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 		if (connection == null) {
 			call.reject(keyErrorNotConnected);
 			return;
 		}
-
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-
 		Integer propertyService = call.getInt(keyService);
 		Log.d(getLogTag(),"service: "+String.valueOf(propertyService));
 		if (propertyService == null) {
 			call.reject(keyErrorServiceMissing);
 			return;
 		}
-
 		UUID serviceUuid = get128BitUUID(propertyService);
-
 		BluetoothGattService service = gatt.getService(serviceUuid);
-
 		if (service == null) {
 			call.reject(keyErrorServiceNotFound);
 			return;
 		}
 		Log.d(getLogTag(),"enableNotifications 02");
-
 		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
 		Log.d(getLogTag(),"characteristic: "+String.valueOf(propertyCharacteristic));
 		if (propertyCharacteristic == null) {
 			call.reject(keyErrorCharacteristicMissing);
 			return;
 		}
-
 		UUID characteristicUuid = get128BitUUID(propertyCharacteristic);
-
 		BluetoothGattCharacteristic characteristic = service.getCharacteristic(characteristicUuid);
-
 		if (characteristic == null) {
 			call.reject(keyErrorCharacteristicNotFound);
 			return;
 		}
 		Log.d(getLogTag(),"enableNotifications 03... clientCharacteristicConfigurationUuid: "+String.valueOf(clientCharacteristicConfigurationUuid));
 		Log.d(getLogTag(),"enableNotifications 03.1... EM HEX: "+Integer.toHexString(clientCharacteristicConfigurationUuid));
-
 		UUID clientCharacteristicConfDescriptorUuid = get128BitUUID(clientCharacteristicConfigurationUuid);
 		Log.d(getLogTag(),"clientCharacteristicConfDescriptorUuid: "+clientCharacteristicConfDescriptorUuid.toString());
 		BluetoothGattDescriptor notificationDescriptor = characteristic.getDescriptor(clientCharacteristicConfDescriptorUuid);
-
 		if (notificationDescriptor == null) {
 			call.reject(keyErrorDescriptorNotFound);
 			return;
 		}
-
 		boolean notificationSet = gatt.setCharacteristicNotification(characteristic, true);
-
 		if (!notificationSet) {
 			call.reject("Unable to set characteristic notification");
 			return;
 		}
-
 		boolean result = false;
-
 		Log.d(getLogTag(),"enableNotifications 04");
 		if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) == BluetoothGattCharacteristic.PROPERTY_NOTIFY) {
 			Log.d(getLogTag(),"ENABLE NOTIFICATION NO DESCRIPTOR");
@@ -976,18 +762,13 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"ENABLE INDICATION NO DESCRIPTOR");
 			result = notificationDescriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
 		}
-
 		if (!result) {
 			call.reject(keyErrorValueSet);
 			return;
 		}
-
 		Log.d(getLogTag(),"enableNotifications 05");
-
 		connection.put(keyOperationWriteDescriptor, call);
-
 		result = gatt.writeDescriptor(notificationDescriptor);
-
 		if (!result) {
 			Log.d(getLogTag(),"enableNotifications ERRO");
 			connection.remove(keyOperationWriteDescriptor);
@@ -996,91 +777,185 @@ public class BluetoothLEClient extends Plugin {
 		}else{
 			Log.d(getLogTag(),"enableNotifications 06");
 		}
-
-
 	}
 
 	@PluginMethod()
-	public void disableNotifications(PluginCall call) {
-
+	public void getCharacteristic(PluginCall call) {
 		String address = call.getString(keyAddress);
-
 		if (address == null) {
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
-
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 		if (connection == null) {
 			call.reject(keyErrorNotConnected);
 			return;
 		}
-
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-
 		Integer propertyService = call.getInt(keyService);
-
 		if (propertyService == null) {
 			call.reject(keyErrorServiceMissing);
 			return;
 		}
-
-		UUID serviceUuid = get128BitUUID(propertyService);
-
-		BluetoothGattService service = gatt.getService(serviceUuid);
-
+		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
 		if (service == null) {
 			call.reject(keyErrorServiceNotFound);
 			return;
 		}
-
 		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
-
 		if (propertyCharacteristic == null) {
 			call.reject(keyErrorCharacteristicMissing);
 			return;
 		}
-
-		UUID characteristicUuid = get128BitUUID(propertyCharacteristic);
-
-		BluetoothGattCharacteristic characteristic = service.getCharacteristic(characteristicUuid);
-
+		Log.d(getLogTag(),"characteristic: "+String.valueOf(propertyCharacteristic));
+		BluetoothGattCharacteristic characteristic = service.getCharacteristic(get128BitUUID(propertyCharacteristic));
 		if (characteristic == null) {
 			call.reject(keyErrorCharacteristicNotFound);
 			return;
 		}
+		JSObject retCharacteristic = createJSBluetoothGattCharacteristic(characteristic);
+		call.resolve(retCharacteristic);
+	}
 
-		UUID clientCharacteristicConfDescriptorUuid = get128BitUUID(clientCharacteristicConfigurationUuid);
-		BluetoothGattDescriptor notificationDescriptor = characteristic.getDescriptor(clientCharacteristicConfDescriptorUuid);
-
-		if (notificationDescriptor == null) {
-			call.reject(keyErrorDescriptorNotFound);
+	@PluginMethod()
+	public void getCharacteristics(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
 			return;
 		}
-
-		boolean notificationUnset = gatt.setCharacteristicNotification(characteristic, false);
-
-		if (!notificationUnset) {
-			call.reject("Unable to unset characteristic notification");
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
 			return;
 		}
-
-		boolean result = notificationDescriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-
-		if (!result) {
-			call.reject(keyErrorValueSet);
+		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		Integer propertyService = call.getInt(keyService);
+		if (propertyService == null) {
+			call.reject(keyErrorServiceMissing);
 			return;
 		}
-
-		connection.put(keyOperationWriteDescriptor, call);
-
-		result = gatt.writeDescriptor(notificationDescriptor);
-
-		if (!result) {
-			connection.remove(keyOperationWriteDescriptor);
-			call.reject(keyErrorValueWrite);
+		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
+		if (service == null) {
+			call.reject(keyErrorServiceNotFound);
 			return;
+		}
+		List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
+		ArrayList<JSObject> retCharacteristics = new ArrayList<>();
+		for (BluetoothGattCharacteristic characteristic : characteristics) {
+			retCharacteristics.add(createJSBluetoothGattCharacteristic(characteristic));
+		}
+		JSObject ret = new JSObject();
+		addProperty(ret, keyCharacteristics, JSArray.from(retCharacteristics.toArray()));
+		call.resolve(ret);
+	}
+
+	@PluginMethod()
+	public void getService(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
+			return;
+		}
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
+			return;
+		}
+		BluetoothGatt peripheral = (BluetoothGatt) connection.get(keyPeripheral);
+		Integer propertyService = call.getInt(keyUuid);
+		if (propertyService == null) {
+			call.reject(keyErrorServiceMissing);
+			return;
+		}
+		BluetoothGattService service = peripheral.getService(get128BitUUID(propertyService));
+		if (service == null) {
+			call.reject(keyErrorServiceNotFound);
+			return;
+		}
+		call.resolve(createJSBluetoothGattService(service));
+	}
+
+	@PluginMethod()
+	public void getServices(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
+			return;
+		}
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
+			return;
+		}
+		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		List<BluetoothGattService> services = gatt.getServices();
+		ArrayList<JSObject> retServices = new ArrayList<>();
+		for (BluetoothGattService service : services) {
+			retServices.add(createJSBluetoothGattService(service));
+		}
+		JSObject ret = new JSObject();
+		addProperty(ret, keyServices, JSArray.from(retServices.toArray()));
+		call.resolve(ret);
+	}
+
+	@PluginMethod()
+	public void hasPermissions(PluginCall call){
+		if (!hasRequiredPermissions()) {
+			saveCall(call);
+			pluginRequestAllPermissions();
+		}else{
+			JSObject ret = new JSObject();
+			ret.put("isAllowed",true);
+			call.resolve(ret);
+		}
+	}
+
+	@PluginMethod()
+	public void isAvailable(PluginCall call) {
+		JSObject ret = new JSObject();
+		if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+			ret.put(keyAvailable, true);
+			call.resolve(ret);
+		} else {
+			ret.put(keyAvailable, false);
+			call.resolve(ret);
+		}
+	}
+
+	@PluginMethod()
+	public void isConnected(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
+			return;
+		}
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if(connection != null){
+			Log.d(getLogTag(),"CONNECT 04.1");
+			Log.d(getLogTag(),"CONNECTION: "+connection.toString());
+			boolean isAlreadyConnected = (Integer) connection.get(keyConnectionState) == BluetoothProfile.STATE_CONNECTED;
+			boolean servicesDiscovered = (Integer) connection.get(keyDiscovered) == SERVICES_DISCOVERED;
+			if(isAlreadyConnected && servicesDiscovered ){
+				JSObject ret = new JSObject();
+				addProperty(ret, keyConnected, true);
+				call.resolve(ret);
+				return;
+			}
+		}
+		Log.d(getLogTag(),"NAO ESTA CONECTADO...");
+		call.reject(keyErrorNotConnected);
+	}
+
+	@PluginMethod()
+	public void isEnabled(PluginCall call) {
+		JSObject ret = new JSObject();
+		if (bluetoothAdapter.isEnabled()) {
+			ret.put(keyEnabled, true);
+			call.resolve(ret);
+		} else {
+			ret.put(keyEnabled, false);
+			call.resolve(ret);
 		}
 	}
 
@@ -1088,63 +963,117 @@ public class BluetoothLEClient extends Plugin {
 	public void read(PluginCall call) {
 		Log.d(getLogTag(),"PLUGIN READ...");
 		String address = call.getString(keyAddress);
-
 		if (address == null) {
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
-
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-
 		if (connection == null) {
 			call.reject(keyErrorNotConnected);
 			return;
 		}
-
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-
 		String propertyCharacteristic = call.getString(keyCharacteristic);
-
 		if (propertyCharacteristic == null) {
 			call.reject(keyErrorCharacteristicMissing);
 			return;
 		}
-
 		String propertyService = call.getString(keyService);
-
 		if (propertyService == null) {
 			call.reject(keyErrorServiceMissing);
 			return;
 		}
-
-
 		UUID service128BitUuid = get128BitUUID(propertyService);
 		BluetoothGattService service = gatt.getService(service128BitUuid);
-
 		if (service == null) {
 			call.reject(keyErrorServiceNotFound);
 			return;
 		}
-
 		UUID characteristic128BitUuid = get128BitUUID(propertyCharacteristic);
 		BluetoothGattCharacteristic characteristic = service.getCharacteristic(characteristic128BitUuid);
-
 		if (characteristic == null) {
 			call.reject(keyErrorCharacteristicNotFound);
 			return;
 		}
 		currentOperation = "read";
 		connection.put(keyOperationRead, call);
-
-
 		boolean success = gatt.readCharacteristic(characteristic);
-
 		if (!success) {
 			call.error(keyErrorValueRead);
 			connection.remove(keyOperationRead);
 		}
+	}
 
+	@PluginMethod()
+	public void readDescriptor(PluginCall call) {
+		String address = call.getString(keyAddress);
+		if (address == null) {
+			call.reject(keyErrorAddressMissing);
+			return;
+		}
+		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
+		if (connection == null) {
+			call.reject(keyErrorNotConnected);
+			return;
+		}
+		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		Integer propertyService = call.getInt(keyService);
+		if (propertyService == null) {
+			call.reject(keyErrorServiceMissing);
+			return;
+		}
+		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
+		if (propertyCharacteristic == null) {
+			call.reject(keyErrorCharacteristicMissing);
+			return;
+		}
+		Integer propertyDescriptor = call.getInt(keyDescriptor);
+		if (propertyDescriptor == null) {
+			call.reject(keyErrorDescriptorMissing);
+			return;
+		}
+		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
+		if (service == null) {
+			call.reject(keyErrorServiceNotFound);
+			return;
+		}
+		BluetoothGattCharacteristic characteristic = service.getCharacteristic(get128BitUUID(propertyCharacteristic));
+		if (characteristic == null) {
+			call.reject(keyErrorCharacteristicNotFound);
+			return;
+		}
+		BluetoothGattDescriptor descriptor = characteristic.getDescriptor(get128BitUUID(propertyDescriptor));
+		if (descriptor == null) {
+			call.reject(keyErrorDescriptorNotFound);
+			return;
+		}
+		connection.put(keyOperationReadDescriptor, call);
+		boolean success = gatt.readDescriptor(descriptor);
+		if (!success) {
+			connection.remove(keyOperationReadDescriptor);
+			call.reject(keyErrorValueRead);
+			return;
+		}
+	}
 
+	@PluginMethod()
+	public void scan(PluginCall call) {
+		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+		availableDevices = new HashMap<String, BluetoothDevice>();
+		scanCallback = new BLEScanCallback();
+		ScanSettings settings = new ScanSettings.Builder()
+				.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+				.build();
+		bleScanner.startScan(new ArrayList<>(), settings, scanCallback);
+		Handler handler = new Handler();
+		handler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				Log.d(getLogTag(),"Chamando stop scan de scan()");
+				BluetoothLEClient.this.stopScan(true);
+			}
+		},2000);
+		saveCall(call);
 	}
 
 	@PluginMethod()
@@ -1220,178 +1149,6 @@ public class BluetoothLEClient extends Plugin {
 			call.error(keyErrorValueWrite);
 			connection.remove(keyOperationWrite);
 		}
-	}
-
-	@PluginMethod()
-	public void readDescriptor(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if (connection == null) {
-			call.reject(keyErrorNotConnected);
-			return;
-		}
-		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-		Integer propertyService = call.getInt(keyService);
-		if (propertyService == null) {
-			call.reject(keyErrorServiceMissing);
-			return;
-		}
-		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
-		if (propertyCharacteristic == null) {
-			call.reject(keyErrorCharacteristicMissing);
-			return;
-		}
-		Integer propertyDescriptor = call.getInt(keyDescriptor);
-		if (propertyDescriptor == null) {
-			call.reject(keyErrorDescriptorMissing);
-			return;
-		}
-		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
-		if (service == null) {
-			call.reject(keyErrorServiceNotFound);
-			return;
-		}
-		BluetoothGattCharacteristic characteristic = service.getCharacteristic(get128BitUUID(propertyCharacteristic));
-		if (characteristic == null) {
-			call.reject(keyErrorCharacteristicNotFound);
-			return;
-		}
-		BluetoothGattDescriptor descriptor = characteristic.getDescriptor(get128BitUUID(propertyDescriptor));
-		if (descriptor == null) {
-			call.reject(keyErrorDescriptorNotFound);
-			return;
-		}
-		connection.put(keyOperationReadDescriptor, call);
-		boolean success = gatt.readDescriptor(descriptor);
-		if (!success) {
-			connection.remove(keyOperationReadDescriptor);
-			call.reject(keyErrorValueRead);
-			return;
-		}
-	}
-
-	@PluginMethod()
-	public void getService(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if (connection == null) {
-			call.reject(keyErrorNotConnected);
-			return;
-		}
-		BluetoothGatt peripheral = (BluetoothGatt) connection.get(keyPeripheral);
-		Integer propertyService = call.getInt(keyUuid);
-		if (propertyService == null) {
-			call.reject(keyErrorServiceMissing);
-			return;
-		}
-		BluetoothGattService service = peripheral.getService(get128BitUUID(propertyService));
-		if (service == null) {
-			call.reject(keyErrorServiceNotFound);
-			return;
-		}
-		call.resolve(createJSBluetoothGattService(service));
-	}
-
-	@PluginMethod()
-	public void getServices(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if (connection == null) {
-			call.reject(keyErrorNotConnected);
-			return;
-		}
-		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-		List<BluetoothGattService> services = gatt.getServices();
-		ArrayList<JSObject> retServices = new ArrayList<>();
-		for (BluetoothGattService service : services) {
-			retServices.add(createJSBluetoothGattService(service));
-		}
-		JSObject ret = new JSObject();
-		addProperty(ret, keyServices, JSArray.from(retServices.toArray()));
-		call.resolve(ret);
-	}
-
-	@PluginMethod()
-	public void getCharacteristic(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if (connection == null) {
-			call.reject(keyErrorNotConnected);
-			return;
-		}
-		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-		Integer propertyService = call.getInt(keyService);
-		if (propertyService == null) {
-			call.reject(keyErrorServiceMissing);
-			return;
-		}
-		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
-		if (service == null) {
-			call.reject(keyErrorServiceNotFound);
-			return;
-		}
-		Integer propertyCharacteristic = call.getInt(keyCharacteristic);
-		if (propertyCharacteristic == null) {
-			call.reject(keyErrorCharacteristicMissing);
-			return;
-		}
-		Log.d(getLogTag(),"characteristic: "+String.valueOf(propertyCharacteristic));
-		BluetoothGattCharacteristic characteristic = service.getCharacteristic(get128BitUUID(propertyCharacteristic));
-		if (characteristic == null) {
-			call.reject(keyErrorCharacteristicNotFound);
-			return;
-		}
-		JSObject retCharacteristic = createJSBluetoothGattCharacteristic(characteristic);
-		call.resolve(retCharacteristic);
-	}
-
-	@PluginMethod()
-	public void getCharacteristics(PluginCall call) {
-		String address = call.getString(keyAddress);
-		if (address == null) {
-			call.reject(keyErrorAddressMissing);
-			return;
-		}
-		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
-		if (connection == null) {
-			call.reject(keyErrorNotConnected);
-			return;
-		}
-		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
-		Integer propertyService = call.getInt(keyService);
-		if (propertyService == null) {
-			call.reject(keyErrorServiceMissing);
-			return;
-		}
-		BluetoothGattService service = gatt.getService(get128BitUUID(propertyService));
-		if (service == null) {
-			call.reject(keyErrorServiceNotFound);
-			return;
-		}
-		List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-		ArrayList<JSObject> retCharacteristics = new ArrayList<>();
-		for (BluetoothGattCharacteristic characteristic : characteristics) {
-			retCharacteristics.add(createJSBluetoothGattCharacteristic(characteristic));
-		}
-		JSObject ret = new JSObject();
-		addProperty(ret, keyCharacteristics, JSArray.from(retCharacteristics.toArray()));
-		call.resolve(ret);
 	}
 
 	private void stopScan(Boolean shouldReturn) {
