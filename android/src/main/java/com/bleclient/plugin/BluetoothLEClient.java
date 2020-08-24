@@ -20,6 +20,7 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @NativePlugin(
@@ -496,7 +498,7 @@ public class BluetoothLEClient extends Plugin {
 					Log.d(getLogTag(),"NOME ERA NULO... MAS ACHEI: "+name);
 				}
 				byte[] recordBytes = record.getBytes();
-				final BleAdvertisedData badata = BleUtil.parseAdertisedData(recordBytes);
+				final BleAdvertisedData badata = BleUtil.parseAdvertisedData(recordBytes);
 				Log.d(getLogTag(),"badata.getName(): "+badata.getName());
 				String name2 = deviceToDiscover.getName();
 				Log.d(getLogTag(), "NAME: "+name);
@@ -512,7 +514,14 @@ public class BluetoothLEClient extends Plugin {
 					HashMap<String, Object> con = new HashMap<>();
 					con.put(keyDiscovered, SERVICES_UNDISCOVERED);
 					con.put(keyOperationConnect, call);
-					BluetoothGatt gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback);
+					BluetoothGatt gatt;
+					if(Build.VERSION.SDK_INT >= 23){
+						Log.d(getLogTag(),"BLE CONNECTGATT LE ONLY");
+						gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback,BluetoothDevice.TRANSPORT_LE);
+					}else{
+						Log.d(getLogTag(),"BLE CONNECTGATT AUTO(?)");
+						gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback);
+					}
 					con.put(keyPeripheral, gatt);
 					connections.put(device.getAddress(), con);
 					Log.d(getLogTag(),"NOVA CONNECTION: "+con.toString());
@@ -538,42 +547,55 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void connect(PluginCall call) {
-		Log.d(getLogTag(),"PLUGIN CONNECT 01");
+		String id = call.getString(keyAddress);
+		Log.d(getLogTag(),"BLE CONNECT ID: "+id);
 		String name = call.getString("name");
 		if(name == null){
 			call.reject(keyErrorNameMissing);
 			return;
 		}
+		Log.d(getLogTag(),"BLE CONNECT NAME: "+name);
 		String service = call.getString("service");
 		if(service == null){
 			call.reject(keyErrorServiceMissing);
 			return;
 		}
+		Log.d(getLogTag(),"BLE CONNECT SERVICE: "+service);
 		UUID serviceUUID = get128BitUUID(service);
 		String characteristic = call.getString("characteristic");
 		if(characteristic == null){
 			call.reject(keyErrorCharacteristicMissing);
 			return;
 		}
-		Log.d(getLogTag(),"PLUGIN CONNECT 02");
+		Log.d(getLogTag(),"BLE CONNECT CHARACTERISTIC: "+characteristic);
 		UUID characteristicUUID = get128BitUUID(characteristic);
 		int connectTimeout = call.getInt("timeout",0);
+		Log.d(getLogTag(),"BLE CONNECT TIMEOUT: "+String.valueOf(connectTimeout));
 		if(connectTimeout == 0){
 			connectTimeout = 5000;
 		}
-		Log.d(getLogTag(),"PLUGIN CONNECT 03");
 		saveCall(call);
 		this.deviceToDiscover = new BLEDevice(name,serviceUUID,characteristicUUID);
 		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+		Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices();
+		for (BluetoothDevice bd : bondedDevices) {
+			JSObject obj = BleUtil.getBondedDeviceJSON(bd);
+			Log.d(getLogTag(),"BONDED DEVICE: "+obj.toString());
+			//this.unpairDevice(bd);
+		}
 		availableDevices = new HashMap<String, BluetoothDevice>();
 		scanCallback = new BLEScanCallback();
 		Log.d(getLogTag(),"PLUGIN CONNECT 04");
-		ScanSettings settings = new ScanSettings.Builder()
-				.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-				.build();
+		ScanSettings settings = new ScanSettings.Builder().build();
 		Log.d(getLogTag(),"PLUGIN CONNECT 05");
 		currentOperation = "connect";
-		bleScanner.startScan(new ArrayList<>(), settings, scanCallback);
+		List<ScanFilter> filters = new ArrayList<>();
+		Log.d(getLogTag(),"PLUGIN CONNECT SEARCHING FOR NAME: "+name);
+		ScanFilter macFilter = new ScanFilter.Builder().setDeviceAddress(id).build();
+		ScanFilter nameFilter = new ScanFilter.Builder().setDeviceName(name).build();
+		//filters.add(macFilter);
+		filters.add(nameFilter);
+		bleScanner.startScan(filters, settings, scanCallback);
 		shouldStopForTimeout = true;
 		Handler handler = new Handler();
 		handler.postDelayed(new Runnable() {
@@ -1448,5 +1470,12 @@ public class BluetoothLEClient extends Plugin {
 			Log.e(getLogTag(),"gattRefresh Exception: ");
 			ex.printStackTrace();
 		}
+	}
+
+	private void unpairDevice(BluetoothDevice device) {
+		try {
+			Method m = device.getClass().getMethod("removeBond", (Class[]) null);
+			m.invoke(device, (Object[]) null);
+		} catch (Exception e) { Log.e(getLogTag(), e.getMessage()); }
 	}
 }
