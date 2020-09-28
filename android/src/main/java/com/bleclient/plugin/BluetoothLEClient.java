@@ -166,7 +166,7 @@ public class BluetoothLEClient extends Plugin {
 					case BluetoothProfile.STATE_CONNECTED: {
 						Log.d(getLogTag(),"currentOperation: "+currentOperation);
 						if(currentOperation == "connect"){
-							Log.e(getLogTag(), "RESULTADO CONNECT!");
+							Log.e(getLogTag(), "SENDBACK RESULT CONNECT!");
 							connection.put(keyConnectionState, BluetoothProfile.STATE_CONNECTED);
 							PluginCall call = (PluginCall) connection.get(keyOperationConnect);
 							if (call == null) {
@@ -197,24 +197,24 @@ public class BluetoothLEClient extends Plugin {
 						break;
 					}
 					case BluetoothProfile.STATE_DISCONNECTED: {
-						Log.d(getLogTag(),"DESCONECTOU 01");
+						Log.d(getLogTag(),"DISCONNECTED 01");
 						connection.put(keyConnectionState, BluetoothProfile.STATE_DISCONNECTED);
-						Log.d(getLogTag(),"DESCONECTOU 02");
+						Log.d(getLogTag(),"DISCONNECTED 02");
 						PluginCall call = (PluginCall) connection.get(keyOperationDisconnect);
-						Log.d(getLogTag(),"DESCONECTOU 03");
+						Log.d(getLogTag(),"DISCONNECTED 03");
 						if (call == null) {
-							Log.d(getLogTag(),"DESCONECTOU 03.1");
+							Log.d(getLogTag(),"DISCONNECTED 03.1");
 							break;
 						}
-						Log.d(getLogTag(),"DESCONECTOU 04");
+						Log.d(getLogTag(),"DISCONNECTED 04");
+						Log.d(getLogTag(),"DISCONNECTED 05");
+						connection.remove(keyOperationDisconnect);
+						connections.remove(address);
+						Log.d(getLogTag(),"DISCONNECTED 06");
 						JSObject ret = new JSObject();
 						addProperty(ret, keyDisconnected, true);
 						call.resolve(ret);
 						call.release(getBridge());
-						Log.d(getLogTag(),"DESCONECTOU 05");
-						connection.remove(keyOperationDisconnect);
-						connections.remove(address);
-						Log.d(getLogTag(),"DESCONECTOU 06");
 						break;
 					}
 				}
@@ -245,34 +245,40 @@ public class BluetoothLEClient extends Plugin {
 				Log.e(getLogTag(),"No connection");
 			}
 			if(currentOperation == "connect"){
-				Log.d(getLogTag(), "onServicesDiscovered... RESULTADO DISCOVERSERVICES!");
+				Log.d(getLogTag(), "onServicesDiscovered... RESULT DISCOVERSERVICES!");
 				PluginCall call = (PluginCall) connection.get(keyOperationConnect);
 				if (call == null) {
 					Log.e(getLogTag(), "No saved call");
 					return;
 				}
-				Log.d(getLogTag(), "onServicesDiscovered... TEM CALL");
+				Log.d(getLogTag(), "onServicesDiscovered... THERE IS A CALL");
 				String result = "error";
 				if (status == BluetoothGatt.GATT_SUCCESS) {
 					Log.d(getLogTag(),"onServicesDiscovered... GATT SUCCESS");
 					List<BluetoothGattService> services = gatt.getServices();
-					Log.d(getLogTag(),"onServicesDiscovered... TEMOS "+String.valueOf(services.size())+" SERVICES");
+					Log.d(getLogTag(),"onServicesDiscovered... WE HAVE "+String.valueOf(services.size())+" SERVICES");
 					for(int i=0;i<services.size();i++){
 						BluetoothGattService service = services.get(i);
-						Log.d(getLogTag(),"SERVICO ENCONTRADO: "+service.getUuid().toString());
-						Log.d(getLogTag(),"SERVICO DESEJADO: "+deviceToDiscover.getService().toString());
+						Log.d(getLogTag(),"SERVICE FOUND: "+service.getUuid().toString());
+						Log.d(getLogTag(),"SERVICE DESIRED: "+deviceToDiscover.getService().toString());
 						if(service.getUuid().equals(deviceToDiscover.getService())){
-							Log.d(getLogTag(),"onServicesDiscovered... TEMOS "+String.valueOf(services.size())+" SERVICES");
-							Log.d(getLogTag(),"ENCONTREI O SERVIÇO: "+service.getUuid().toString());
+							Log.d(getLogTag(),"onServicesDiscovered... WE HAVE "+String.valueOf(services.size())+" SERVICES");
+							Log.d(getLogTag(),"FOUND SERVICE: "+service.getUuid().toString());
 							List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-							Log.d(getLogTag(),"ENCONTREI "+String.valueOf(characteristics.size())+" CARACTERISTICAS");
+							Log.d(getLogTag(),"FOUND "+String.valueOf(characteristics.size())+" CHARACTERISTICS");
 							for(int j=0;j<characteristics.size();j++){
 								BluetoothGattCharacteristic characteristic = characteristics.get(j);
-								Log.d(getLogTag(),"CARACTERISTICA ENCONTRADA: "+service.getUuid().toString());
-								Log.d(getLogTag(),"CARACTERISTICA DESEJADA: "+deviceToDiscover.getCharacteristic().toString());
+								Log.d(getLogTag(),"CHARACTERISTIC FOUND: "+service.getUuid().toString());
+								Log.d(getLogTag(),"CHARACTERISTIC DESIRED: "+deviceToDiscover.getCharacteristic().toString());
 								if(characteristic.getUuid().equals(deviceToDiscover.getCharacteristic())){
 									shouldStopForTimeout = false;
-									Log.d(getLogTag(),"ENCONTREI A CARACTERISTICA: "+characteristic.getUuid().toString());
+									Log.d(getLogTag(),"FOUND CHARACTERISTIC: "+characteristic.getUuid().toString());
+									/*Boolean notificationResult = BluetoothLEClient.this.setNotificationEnabled(gatt,characteristic);
+									if(notificationResult){
+										Log.d(getLogTag(),"CHARACTERISTIC NOTIFICATION ON");
+									}else{
+										Log.d(getLogTag(),"CHARACTERISTIC NOTIFICATION OFF");
+									}*/
 									result = "success";
 									break;
 								}else{
@@ -288,14 +294,14 @@ public class BluetoothLEClient extends Plugin {
 					}
 				}
 				if(result == "success"){
-					Log.d(getLogTag(),"VOU RETORNAR SUCESSO PARA CONNECT(params)");
+					Log.d(getLogTag(),"RETURNING SUCCESS TO CONNECT(params)");
 					connection.put(keyDiscovered, SERVICES_DISCOVERED);
 					JSObject ret = new JSObject();
 					addProperty(ret, keyConnected, true);
 					Log.d(getLogTag(),"ret: "+ret.toString());
 					call.resolve(ret);
 				}else{
-					Log.d(getLogTag(),"VOU RETORNAR ERRO DE SERVICO NAO ENCONTRADO PARA CONNECT(params)");
+					Log.d(getLogTag(),"RETURNING SERVICE NOT FOUND ERROR TO CONNECT(params)");
 					call.reject(keyErrorServiceNotFound);
 				}
 			}else{
@@ -319,6 +325,8 @@ public class BluetoothLEClient extends Plugin {
 		@Override
 		public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
 			Log.d(getLogTag(),"onCharacteristicRead...");
+			Log.d(getLogTag(),"GATT READ STATUS: "+status);
+			Log.d(getLogTag(),"GATT READ VALUE: "+characteristic.getValue().toString());
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
@@ -333,14 +341,14 @@ public class BluetoothLEClient extends Plugin {
 				return;
 			}
 			JSObject ret = new JSObject();
-			if (status == BluetoothGatt.GATT_SUCCESS) {
+			if (status == BluetoothGatt.GATT_SUCCESS || status == 10) {
 				byte[] characteristicValue = characteristic.getValue();
 				int[] arr = new int[characteristicValue.length];
 				for(int i=0;i<characteristicValue.length;i++){
 					int original = characteristicValue[i];
 					int unsigned = (original & 0xff);
-					Log.d(getLogTag(),"VALOR ORIGINAL: "+String.valueOf(original));
-					Log.d(getLogTag(),"VALOR UNSIGNED: "+String.valueOf(unsigned));
+					Log.d(getLogTag(),"ORIGINAL VALUE: "+String.valueOf(original));
+					Log.d(getLogTag(),"UNSIGNED VALUE: "+String.valueOf(unsigned));
 					arr[i] = unsigned;
 				}
 				addProperty(ret, keyValue, JSArray.from(arr));
@@ -398,9 +406,11 @@ public class BluetoothLEClient extends Plugin {
 			}
 			JSObject ret = new JSObject();
 			addProperty(ret, keyValue, JSArray.from(characteristicValue));
+			Log.d(getLogTag(),"NOTIFYING EVENT: "+characteristic16BitUuid.toString());
+			Log.d(getLogTag(),"NOTIFYING DATA: "+ret.toString());
 			notifyListeners(characteristic16BitUuid.toString(), ret);
 			if(currentOperation == "write"){
-				Log.d(getLogTag(),"AQUI RETORNARIA DO WRITE...");
+				Log.d(getLogTag(),"THIS IS WHERE WRITE WOULD RETURN...");
 			}
 		}
 
@@ -429,6 +439,7 @@ public class BluetoothLEClient extends Plugin {
 
 		@Override
 		public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+			Log.d(getLogTag(),"onDescriptorWrite... status: "+status);
 			BluetoothDevice device = gatt.getDevice();
 			String address = device.getAddress();
 			HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
@@ -442,9 +453,11 @@ public class BluetoothLEClient extends Plugin {
 			byte[] value = descriptor.getValue();
 			JSObject ret = new JSObject();
 			if (status == BluetoothGatt.GATT_SUCCESS) {
+				Log.d(getLogTag(),"onDescriptorWrite SUCCESS");
 				addProperty(ret, keyValue, JSArray.from(value));
 				call.resolve(ret);
 			} else {
+				Log.d(getLogTag(),"onDescriptorWrite ERROR");
 				call.error(keyErrorValueWrite);
 			}
 			connection.remove(keyOperationWriteDescriptor);
@@ -478,6 +491,7 @@ public class BluetoothLEClient extends Plugin {
 		@Override
 		public void onScanResult(int callbackType, ScanResult result) {
 			super.onScanResult(callbackType, result);
+			Log.d(getLogTag(),"SCAN RESULT DESCRIBE CONTENTS: "+result.toString());
 			ScanRecord record = result.getScanRecord();
 			Log.d(getLogTag(),"record.getDeviceName(): "+record.getDeviceName());
 			Log.d(getLogTag(),"record.toString(): "+record.toString());
@@ -491,11 +505,11 @@ public class BluetoothLEClient extends Plugin {
 			}
 			Log.d(getLogTag(),"onScanResult 03");
 			if(currentOperation == "connect"){
-				Log.d(getLogTag(), "RESULTADO SCAN!");
+				Log.d(getLogTag(), "RESULT SCAN!");
 				String name = device.getName();
 				if(name == null){
 					name = record.getDeviceName();
-					Log.d(getLogTag(),"NOME ERA NULO... MAS ACHEI: "+name);
+					Log.d(getLogTag(),"NAME WAS NULL... BUT I FOUND THIS: "+name);
 				}
 				byte[] recordBytes = record.getBytes();
 				final BleAdvertisedData badata = BleUtil.parseAdvertisedData(recordBytes);
@@ -504,9 +518,9 @@ public class BluetoothLEClient extends Plugin {
 				Log.d(getLogTag(), "NAME: "+name);
 				Log.d(getLogTag(), "deviceToDiscover.getName(): "+name2);
 				if(name != null && name.equals(name2)){
-					Log.d(getLogTag(),"Chamando stop scan de onScanResult");
+					Log.d(getLogTag(),"Calling stop scan from onScanResult");
 					stopScan(false);
-					Log.d(getLogTag(),"MESMO NOME!");
+					Log.d(getLogTag(),"SAME NAME!");
 					PluginCall call = getSavedCall();
 					if(call == null){
 						return;
@@ -524,7 +538,7 @@ public class BluetoothLEClient extends Plugin {
 					}
 					con.put(keyPeripheral, gatt);
 					connections.put(device.getAddress(), con);
-					Log.d(getLogTag(),"NOVA CONNECTION: "+con.toString());
+					Log.d(getLogTag(),"NEW CONNECTION: "+con.toString());
 				}else{
 					Log.d(getLogTag(),name+" != "+name2);
 				}
@@ -577,16 +591,30 @@ public class BluetoothLEClient extends Plugin {
 		saveCall(call);
 		this.deviceToDiscover = new BLEDevice(name,serviceUUID,characteristicUUID);
 		bleScanner = bluetoothAdapter.getBluetoothLeScanner();
-		Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices();
+		/*Set<BluetoothDevice> bondedDevices = bluetoothAdapter.getBondedDevices();
 		for (BluetoothDevice bd : bondedDevices) {
 			JSObject obj = BleUtil.getBondedDeviceJSON(bd);
 			Log.d(getLogTag(),"BONDED DEVICE: "+obj.toString());
 			//this.unpairDevice(bd);
-		}
+		}*/
 		availableDevices = new HashMap<String, BluetoothDevice>();
 		scanCallback = new BLEScanCallback();
 		Log.d(getLogTag(),"PLUGIN CONNECT 04");
-		ScanSettings settings = new ScanSettings.Builder().build();
+		ScanSettings settings;
+		if(Build.VERSION.SDK_INT >= 23){
+			Log.d(getLogTag(),"SDK >= 23, SO WE WILL USE MATCH MODE AGGRESSIVE AND MATCH ONE AD");
+			settings = new ScanSettings.Builder()
+					.setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
+					.setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+					//.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+					.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+					.setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
+					.build();
+		}else{
+			settings = new ScanSettings.Builder()
+					.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+					.build();
+		}
 		Log.d(getLogTag(),"PLUGIN CONNECT 05");
 		currentOperation = "connect";
 		List<ScanFilter> filters = new ArrayList<>();
@@ -594,8 +622,10 @@ public class BluetoothLEClient extends Plugin {
 		ScanFilter macFilter = new ScanFilter.Builder().setDeviceAddress(id).build();
 		ScanFilter nameFilter = new ScanFilter.Builder().setDeviceName(name).build();
 		//filters.add(macFilter);
-		filters.add(nameFilter);
+		//filters.add(nameFilter);
 		bleScanner.startScan(filters, settings, scanCallback);
+		//TODO: TRY TO USE THE startScan() FUNCTION WITHOUT filters AND settings
+		//bleScanner.startScan(scanCallback);
 		shouldStopForTimeout = true;
 		Handler handler = new Handler();
 		handler.postDelayed(new Runnable() {
@@ -604,7 +634,7 @@ public class BluetoothLEClient extends Plugin {
 				if(shouldStopForTimeout){
 					BluetoothLEClient.this.stopScan(true);
 				}else{
-					Log.d(getLogTag(),"RUN PREVENIDO");
+					Log.d(getLogTag(),"RUN PREVENTED");
 				}
 			}
 		},connectTimeout);
@@ -673,13 +703,21 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void disconnect(PluginCall call) {
+		Log.d(getLogTag(),"DISCONNECT 01");
 		String address = call.getString(keyAddress);
 		if (address == null) {
+			Log.d(getLogTag(),"DISCONNECT NO ADDRESS");
 			call.reject(keyErrorAddressMissing);
 			return;
 		}
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
 		if (connection == null) {
+			BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+			List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+			for (BluetoothDevice bd : devices) {
+				Log.d(getLogTag(),"ALREADY CONNECTED TO: "+bd.toString());
+			}
+			Log.d(getLogTag(),"DISCONNECT NO CONNECTION");
 			JSObject ret = new JSObject();
 			addProperty(ret, keyDisconnected, true);
 			call.resolve(ret);
@@ -687,6 +725,11 @@ public class BluetoothLEClient extends Plugin {
 		}
 		connection.put(keyOperationDisconnect, call);
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
+		if(gatt == null){
+			Log.d(getLogTag(),"DISCONNECT GATT OBJECT IS DEAD/IS NULL");
+			call.resolve();
+			return;
+		}
 		call.save();
 		gatt.disconnect();
 		return;
@@ -716,9 +759,20 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void enable(PluginCall call) {
+		Log.d(getLogTag(),"enable 01");
 		if (!bluetoothAdapter.isEnabled()) {
+			Log.d(getLogTag(),"enable 02.1");
+			call.save();
+			Log.d(getLogTag(),"enable 03");
 			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			Log.d(getLogTag(),"enable 04");
 			startActivityForResult(call, enableIntent, REQUEST_ENABLE_BT);
+			Log.d(getLogTag(),"enable 05");
+		}else{
+			Log.d(getLogTag(),"enable 02.2");
+			JSObject ret = new JSObject();
+			ret.put(keyEnabled, true);
+			call.resolve(ret);
 		}
 	}
 
@@ -762,8 +816,9 @@ public class BluetoothLEClient extends Plugin {
 			call.reject(keyErrorCharacteristicNotFound);
 			return;
 		}
+		currentOperation = "enableNotifications";
 		Log.d(getLogTag(),"enableNotifications 03... clientCharacteristicConfigurationUuid: "+String.valueOf(clientCharacteristicConfigurationUuid));
-		Log.d(getLogTag(),"enableNotifications 03.1... EM HEX: "+Integer.toHexString(clientCharacteristicConfigurationUuid));
+		Log.d(getLogTag(),"enableNotifications 03.1... IN HEX: "+Integer.toHexString(clientCharacteristicConfigurationUuid));
 		UUID clientCharacteristicConfDescriptorUuid = get128BitUUID(clientCharacteristicConfigurationUuid);
 		Log.d(getLogTag(),"clientCharacteristicConfDescriptorUuid: "+clientCharacteristicConfDescriptorUuid.toString());
 		BluetoothGattDescriptor notificationDescriptor = characteristic.getDescriptor(clientCharacteristicConfDescriptorUuid);
@@ -779,10 +834,10 @@ public class BluetoothLEClient extends Plugin {
 		boolean result = false;
 		Log.d(getLogTag(),"enableNotifications 04");
 		if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) == BluetoothGattCharacteristic.PROPERTY_NOTIFY) {
-			Log.d(getLogTag(),"ENABLE NOTIFICATION NO DESCRIPTOR");
+			Log.d(getLogTag(),"ENABLE NOTIFICATION IN DESCRIPTOR");
 			result = notificationDescriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 		} else {
-			Log.d(getLogTag(),"ENABLE INDICATION NO DESCRIPTOR");
+			Log.d(getLogTag(),"ENABLE INDICATION IN DESCRIPTOR");
 			result = notificationDescriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
 		}
 		if (!result) {
@@ -793,7 +848,7 @@ public class BluetoothLEClient extends Plugin {
 		connection.put(keyOperationWriteDescriptor, call);
 		result = gatt.writeDescriptor(notificationDescriptor);
 		if (!result) {
-			Log.d(getLogTag(),"enableNotifications ERRO");
+			Log.d(getLogTag(),"enableNotifications ERROR");
 			connection.remove(keyOperationWriteDescriptor);
 			call.reject(keyErrorValueWrite);
 			return;
@@ -966,8 +1021,11 @@ public class BluetoothLEClient extends Plugin {
 				return;
 			}
 		}
-		Log.d(getLogTag(),"NAO ESTA CONECTADO...");
-		call.reject(keyErrorNotConnected);
+		Log.d(getLogTag(),"IS NOT CONNECTED...");
+		JSObject ret = new JSObject();
+		addProperty(ret, keyConnected, false);
+		call.resolve(ret);
+		return;
 	}
 
 	@PluginMethod()
@@ -1022,6 +1080,7 @@ public class BluetoothLEClient extends Plugin {
 		connection.put(keyOperationRead, call);
 		boolean success = gatt.readCharacteristic(characteristic);
 		if (!success) {
+			Log.d(getLogTag(),"COULD NOT EVEN READ CHARACTERISTIC");
 			call.error(keyErrorValueRead);
 			connection.remove(keyOperationRead);
 		}
@@ -1093,7 +1152,8 @@ public class BluetoothLEClient extends Plugin {
 		}
 		BluetoothGatt gatt = (BluetoothGatt) connection.get(keyPeripheral);
 		int callbackDelay = call.getInt("delay",5000);
-		gattRefresh(gatt);
+		callbackDelay = 1000;
+		//gattRefresh(gatt);
 		Handler handler = new Handler();
 		handler.postDelayed(new Runnable() {
 			@Override
@@ -1104,7 +1164,7 @@ public class BluetoothLEClient extends Plugin {
 					Log.d(getLogTag(),"refreshCache call null...");
 					return;
 				}
-				Log.d(getLogTag(),"refreshCache call existe...");
+				Log.d(getLogTag(),"refreshCache call exists...");
 				call.resolve();
 			}
 		},callbackDelay);
@@ -1124,7 +1184,7 @@ public class BluetoothLEClient extends Plugin {
 		handler.postDelayed(new Runnable() {
 			@Override
 			public void run() {
-				Log.d(getLogTag(),"Chamando stop scan de scan()");
+				Log.d(getLogTag(),"Calling stop scan from scan()");
 				BluetoothLEClient.this.stopScan(true);
 			}
 		},2000);
@@ -1150,7 +1210,7 @@ public class BluetoothLEClient extends Plugin {
 		List<BluetoothGattService> services = gatt.getServices();
 		for(int i=0;i<services.size();i++){
 			BluetoothGattService service = services.get(i);
-			Log.d(getLogTag(),"SERVICO DO GATT: "+service.getUuid().toString());
+			Log.d(getLogTag(),"GATT SERVICE: "+service.getUuid().toString());
 		}
 		String propertyCharacteristic = call.getString(keyCharacteristic);
 		if (propertyCharacteristic == null) {
@@ -1191,7 +1251,6 @@ public class BluetoothLEClient extends Plugin {
 			call.reject("Unsufficient value given");
 			return;
 		}
-		//characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
 		characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
 		boolean valueSet = characteristic.setValue(toWrite);
 		if (!valueSet) {
@@ -1226,7 +1285,7 @@ public class BluetoothLEClient extends Plugin {
 			return;
 		}
 		if(currentOperation == "connect" && shouldReturn){
-			Log.d(getLogTag(),"STOP SCAN RETORNANDO ERRO");
+			Log.d(getLogTag(),"STOP SCAN RETURNING ERROR");
 			ret.put(keyConnected, false);
 			savedCall.reject(keyErrorConnectTimeout);
 			savedCall.release(getBridge());
@@ -1336,14 +1395,18 @@ public class BluetoothLEClient extends Plugin {
 	@Override
 	protected void handleOnActivityResult(int requestCode, int resultCode, Intent data) {
 		super.handleOnActivityResult(requestCode, resultCode, data);
-		Log.i(getLogTag(), "Handler called with " + resultCode);
+		Log.i(getLogTag(), "handleOnActivityResult... requestCode: " + String.valueOf(requestCode));
+		Log.i(getLogTag(), "handleOnActivityResult... resultCode: " + String.valueOf(resultCode));
 		if (requestCode == REQUEST_ENABLE_BT) {
 			PluginCall call = getSavedCall();
 			if (call == null) {
+				Log.d(getLogTag(),"CALL IS NULL...");
 				return;
 			}
+			Log.d(getLogTag(),"CALL IS NOT NULL...");
 			JSObject ret = new JSObject();
 			addProperty(ret, keyEnabled, resultCode == 0 ? false : true);
+			Log.d(getLogTag(),"SENDING: "+ret.toString());
 			call.resolve(ret);
 			call.release(getBridge());
 		}
@@ -1423,9 +1486,9 @@ public class BluetoothLEClient extends Plugin {
 		}
 		String hexString = Integer.toHexString(uuid);
 		if (hexString.length() != 4) {
-			Log.d(getLogTag(),"HEX ANTES: "+hexString);
+			Log.d(getLogTag(),"HEX BEFORE: "+hexString);
 			hexString = String.format("%4s", hexString).replace(' ', '0');
-			Log.d(getLogTag(),"HEX DEPOIS: "+hexString);
+			Log.d(getLogTag(),"HEX AFTER: "+hexString);
 			//return null;
 		}
 		String uuidString = BASE_UUID_HEAD + hexString + BASE_UUID_TAIL;
@@ -1477,5 +1540,27 @@ public class BluetoothLEClient extends Plugin {
 			Method m = device.getClass().getMethod("removeBond", (Class[]) null);
 			m.invoke(device, (Object[]) null);
 		} catch (Exception e) { Log.e(getLogTag(), e.getMessage()); }
+	}
+
+	private Boolean setNotificationEnabled(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
+		UUID clientCharacteristicConfDescriptorUuid = get128BitUUID(clientCharacteristicConfigurationUuid);
+		BluetoothGattDescriptor notificationDescriptor = characteristic.getDescriptor(clientCharacteristicConfDescriptorUuid);
+		if (notificationDescriptor == null) {
+			return false;
+		}
+		boolean notificationSet = gatt.setCharacteristicNotification(characteristic, true);
+		if (!notificationSet) {
+			return false;
+		}
+		boolean result = false;
+		Log.d(getLogTag(),"enableNotifications 04");
+		if ((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY) == BluetoothGattCharacteristic.PROPERTY_NOTIFY) {
+			Log.d(getLogTag(),"ENABLE NOTIFICATION NO DESCRIPTOR");
+			result = notificationDescriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+		} else {
+			Log.d(getLogTag(),"ENABLE INDICATION NO DESCRIPTOR");
+			result = notificationDescriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+		}
+		return result;
 	}
 }
