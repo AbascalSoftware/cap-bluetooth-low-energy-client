@@ -43,6 +43,7 @@ public class BluetoothLEClient: CAPPlugin {
 		if(bleHandler == nil){
 			print("INICIANDO BLEHANDLER!");
 			bleHandler = BLEHandler();
+			bleHandler.pluginRef = self;
         }
 	}
 
@@ -126,7 +127,25 @@ public class BluetoothLEClient: CAPPlugin {
         }
     }
     @objc func enableNotifications (_ call: CAPPluginCall) {
-        
+        let name: String = call.getString("name") ?? "";
+        if(name == "" || name == ""){
+            CAPLog.print("Deve informar o nome do dispositivo.");
+            call.reject(errorNoName);
+            return;
+        }
+        let service = call.getString("service") ?? "";
+        if(service == ""){
+            CAPLog.print("Deve informar o serviço.");
+            call.reject(errorNoServices);
+            return ;
+        }
+        let characteristic = call.getString("characteristic") ?? "";
+        if(characteristic == ""){
+            CAPLog.print("Deve informar a caracteristica.");
+            call.reject(errorNoCharacteristic);
+            return;
+        }
+        bleHandler?.enableNotifications(call: call, name: name, service: service, characteristic: characteristic);
     }
     @objc func getCharacteristic (_ call: CAPPluginCall) {
         
@@ -286,9 +305,11 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var filterServices: [CBUUID]?;
     var myPeripheral: CBPeripheral?;
     var possibleDevices: [CBPeripheral]? = [];
+	//var notificationCall: CAPPluginCall?;
     var readCall: CAPPluginCall?;
     var scanCall: CAPPluginCall?;
     var writeCall: CAPPluginCall?;
+	var pluginRef: CAPPlugin;
 
     override init(){
         super.init();
@@ -469,11 +490,17 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         switch(currentOperation){
             case "read":
                 if(readCall != nil){
+					pluginRef.notifyListeners(characteristic.uuid.uuidString,bytes);
                     var ret = [String: Any]()
                     ret["value"] = bytes;
                     readCall?.resolve(ret);
                     readCall = nil;
-                }
+                }/*else if(notificationCall != nil){
+					 var ret = [String: Any]()
+                    ret["value"] = bytes;
+                    notificationCall?.resolve(ret);
+                    notificationCall = nil;
+				}*/
                 break;
             default:
                 break;
@@ -518,6 +545,51 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 break;
         }
     }
+
+	func enableNotifications(call: CAPPluginCall, name: String, service: String, characteristic: String){
+		let connectedPeripherals: [CBPeripheral] = (centralManager?.retrieveConnectedPeripherals(withServices: filterServices ?? []))!
+		if(connectedPeripherals.count >= 1){
+			let validPeripheral: CBPeripheral? = validatePeripheral(peripherals: connectedPeripherals, name: name, service: service, characteristic: characteristic);
+            if(validPeripheral != nil){
+                let c: CBCharacteristic? = getCharacteristic(peripheral: validPeripheral, service: service, characteristic: characteristic);
+                if(c != nil){
+					//PEDIR PARA SER NOTIFICADO
+					currentOperation = "read";
+					//notificationCall = call;
+					//notificationCall?.save();
+					validPeripheral?.readValue(for: c!);
+					validPeripheral?.setNotifyValue(true, forCharacteristic: c);
+					call.resolve();
+                }
+                return;
+            }else{
+                call.reject(errorConnectedWrongDevice);
+                return;
+            }
+		}
+		call.reject(errorNotConnected);
+        return;
+		/*currentOperation = "read";
+        readCall = call;
+        readCall?.save();
+        let connectedPeripherals: [CBPeripheral] = (centralManager?.retrieveConnectedPeripherals(withServices: filterServices ?? []))!
+        if(connectedPeripherals.count >= 1){
+            let validPeripheral: CBPeripheral? = validatePeripheral(peripherals: connectedPeripherals, name: name, service: service, characteristic: characteristic);
+            if(validPeripheral != nil){
+                let c: CBCharacteristic? = getCharacteristic(peripheral: validPeripheral, service: service, characteristic: characteristic);
+                if(c != nil){
+                    //value.data
+                    validPeripheral?.readValue(for: c!);
+                }
+                return;
+            }else{
+                call.reject(errorConnectedWrongDevice);
+                return;
+            }
+        }
+        call.reject(errorNotConnected);
+        return;*/
+	}
     
     func getCharacteristic(peripheral: CBPeripheral?, service: String, characteristic: String) -> CBCharacteristic? {
         if(peripheral != nil){
@@ -550,7 +622,9 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             if(validPeripheral != nil){
                 let c: CBCharacteristic? = getCharacteristic(peripheral: validPeripheral, service: service, characteristic: characteristic);
                 if(c != nil){
-                    call.resolve();
+					var ret = [String: Any]()
+            		ret["connected"] = true;
+                    call.resolve(ret);
                 }
                 return;
             }else{

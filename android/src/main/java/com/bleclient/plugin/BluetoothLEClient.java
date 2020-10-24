@@ -31,11 +31,13 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.NativePlugin;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginHandle;
 import com.getcapacitor.PluginMethod;
 import org.json.JSONException;
 import java.lang.Exception;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,15 +104,16 @@ public class BluetoothLEClient extends Plugin {
 	static final String keyPropertyWriteWithoutResponse = "writeWithoutResponse";
 
 	static final String keyErrorAddressMissing = "Property id is required";
-	static final String keyErrorServiceMissing = "Property service is required";
+	static final String keyErrorBytesMissing = "First and/or last bytes are missing";
 	static final String keyErrorCharacteristicMissing = "Property characteristic is required";
+	static final String keyErrorCharacteristicNotFound = "Characteristic not found";
 	static final String keyErrorConnectTimeout = "Connection reached timeout";
 	static final String keyErrorDescriptorMissing = "Property descriptor is required";
+	static final String keyErrorDescriptorNotFound = "Descriptor not found";
 	static final String keyErrorNameMissing = "Property name is missing";
 	static final String keyErrorNotConnected = "Not connected to peripheral";
 	static final String keyErrorServiceNotFound = "Service not found";
-	static final String keyErrorCharacteristicNotFound = "Characteristic not found";
-	static final String keyErrorDescriptorNotFound = "Descriptor not found";
+	static final String keyErrorServiceMissing = "Property service is required";
 	static final String keyErrorValueMissing = "Property value is required";
 	static final String keyErrorValueSet = "Failed to set value";
 	static final String keyErrorValueWrite = "Failed to write value";
@@ -124,6 +127,9 @@ public class BluetoothLEClient extends Plugin {
 	static final String keyOperationRead = "readCharacteristicCallback";
 	static final String keyOperationWrite = "writeCharacteristicCallback";
 
+	static final String keyFirstByte = "first";
+	static final String keyLastByte = "last";
+
 	static final int clientCharacteristicConfigurationUuid = 0x2902;
 
 	private BluetoothAdapter bluetoothAdapter;
@@ -136,6 +142,10 @@ public class BluetoothLEClient extends Plugin {
 	private String currentOperation = "";
 	private BLEDevice deviceToDiscover;
 	private boolean shouldStopForTimeout = false;
+
+	private String firstByte = "CC";
+	private String lastByte = "CF";
+	private int[] packet = new int[0];
 
 	private BluetoothGattCallback bluetoothGattCallback = new BluetoothGattCallback() {
 		@Override
@@ -178,6 +188,7 @@ public class BluetoothLEClient extends Plugin {
 								connection.put(keyOperationDiscover, call);
 							} else {
 								call.reject("Failed to start service discovery");
+								return;
 							}
 						}else{
 							connection.put(keyConnectionState, BluetoothProfile.STATE_CONNECTED);
@@ -214,7 +225,6 @@ public class BluetoothLEClient extends Plugin {
 						JSObject ret = new JSObject();
 						addProperty(ret, keyDisconnected, true);
 						call.resolve(ret);
-						call.release(getBridge());
 						break;
 					}
 				}
@@ -303,6 +313,7 @@ public class BluetoothLEClient extends Plugin {
 				}else{
 					Log.d(getLogTag(),"RETURNING SERVICE NOT FOUND ERROR TO CONNECT(params)");
 					call.reject(keyErrorServiceNotFound);
+					return;
 				}
 			}else{
 				PluginCall call = (PluginCall) connection.get(keyOperationDiscover);
@@ -342,19 +353,10 @@ public class BluetoothLEClient extends Plugin {
 			}
 			JSObject ret = new JSObject();
 			if (status == BluetoothGatt.GATT_SUCCESS || status == 10) {
-				byte[] characteristicValue = characteristic.getValue();
-				int[] arr = new int[characteristicValue.length];
-				for(int i=0;i<characteristicValue.length;i++){
-					int original = characteristicValue[i];
-					int unsigned = (original & 0xff);
-					Log.d(getLogTag(),"ORIGINAL VALUE: "+String.valueOf(original));
-					Log.d(getLogTag(),"UNSIGNED VALUE: "+String.valueOf(unsigned));
-					arr[i] = unsigned;
-				}
+				int[] arr = this.byteArrayToUnsignedIntArray(characteristic.getValue());
 				addProperty(ret, keyValue, JSArray.from(arr));
 				//addProperty(ret, keyValue, JSArray.from(characteristicValue));
 				call.resolve(ret);
-				call.release(getBridge());
 			} else {
 				call.error(keyErrorValueRead);
 			}
@@ -381,10 +383,10 @@ public class BluetoothLEClient extends Plugin {
 				byte[] value = characteristic.getValue();
 				Log.d(getLogTag(),"onCharacteristicWrite SUCCESS");
 				Log.d(getLogTag(),"onCharacteristicWrite c.getValue: "+characteristic.getValue().toString());
+				Log.d(getLogTag(),"CURRENT OPERATION: "+currentOperation);
 				addProperty(ret, keyValue, JSArray.from(value));
 				if(currentOperation == "write"){
 					call.resolve();
-					call.release(getBridge());
 				}
 			} else {
 				call.error(keyErrorValueWrite);
@@ -400,15 +402,17 @@ public class BluetoothLEClient extends Plugin {
 			BluetoothGattService service = characteristic.getService();
 			UUID serviceUuid = service.getUuid();
 			byte[] characteristicValue = characteristic.getValue();
+			int[] part = this.byteArrayToUnsignedIntArray(characteristicValue);
 			Integer characteristic16BitUuid = get16BitUUID(characteristicUuid);
 			if (characteristic16BitUuid == null) {
 				return;
 			}
 			JSObject ret = new JSObject();
-			addProperty(ret, keyValue, JSArray.from(characteristicValue));
+			//addProperty(ret, keyValue, JSArray.from(normalizedValue));
 			Log.d(getLogTag(),"NOTIFYING EVENT: "+characteristic16BitUuid.toString());
 			Log.d(getLogTag(),"NOTIFYING DATA: "+ret.toString());
-			notifyListeners(characteristic16BitUuid.toString(), ret);
+			this.runNotificationCheck(characteristic16BitUuid.toString(),part);
+			//notifyListeners(characteristic16BitUuid.toString(), ret);
 			if(currentOperation == "write"){
 				Log.d(getLogTag(),"THIS IS WHERE WRITE WOULD RETURN...");
 			}
@@ -478,6 +482,65 @@ public class BluetoothLEClient extends Plugin {
 			super.onMtuChanged(gatt, mtu, status);
 		}
 
+		private void respondNotification(String eventName, int[] packet){
+			this.runDebugPacket(packet);
+			JSObject ret = new JSObject();
+			addProperty(ret, keyValue, JSArray.from(packet));
+			notifyListeners(eventName,ret);
+		}
+
+		private void runClearPacket(){
+			BluetoothLEClient.this.packet = new int[0];
+		}
+
+		private void runDebugPacket(int[] packet){
+			String res = "";
+			for(int i=0;i<packet.length;i++){
+				res += Integer.toHexString(packet[i])+" ";
+			}
+			Log.d(getLogTag(),"PACKET: "+res);
+		}
+
+		private void runNotificationCheck(String eventName, int[] unsignedBytes){
+			int expectedFirstByte = Integer.parseInt(BluetoothLEClient.this.firstByte,16);
+			int expectedLastByte = Integer.parseInt(BluetoothLEClient.this.lastByte,16);
+			int firstByte = unsignedBytes[0];
+			int lastByte = unsignedBytes[unsignedBytes.length-1];
+			if(expectedFirstByte == firstByte && expectedLastByte == lastByte){
+				this.respondNotification(eventName, unsignedBytes);
+				this.runClearPacket();
+				//IT IS A FULL PACKET, SO NOTIFY IT AND CLEAR IT
+			}else if(expectedFirstByte == firstByte){
+				//IT IS THE FIRST PART OF A PACKET, SO SET ITS VALUE AND DO NOT NOTIFY
+				BluetoothLEClient.this.packet = unsignedBytes;
+			}else if(expectedLastByte == lastByte){
+				//IT IS THE LAST PART OF A PACKET, SO ADD TO ITS VALUE AND NOTIFY
+				this.respondNotification(eventName, this.concatArray(BluetoothLEClient.this.packet,unsignedBytes));
+				this.runClearPacket();
+			}else {
+				//ADD TO CURRENT PACKET AND STILL DO NOT NOTIFY
+				BluetoothLEClient.this.packet = this.concatArray(BluetoothLEClient.this.packet,unsignedBytes);
+			}
+		}
+
+		private int[] concatArray(int[] a, int[] b) {
+			int[] c = new int[a.length + b.length];
+			int i = 0;
+			for (int x : a) { c[i] = x; i ++; }
+			for (int x : b) { c[i] = x; i ++; }
+			return c;
+		}
+
+		private int[] byteArrayToUnsignedIntArray(byte[] bytearray){
+			int[] arr = new int[bytearray.length];
+			for(int i=0;i<bytearray.length;i++){
+				int original = bytearray[i];
+				int unsigned = (original & 0xff);
+				arr[i] = unsigned;
+			}
+			return arr;
+		}
+
 	};
 
 	private class BLEScanCallback extends ScanCallback {
@@ -529,13 +592,14 @@ public class BluetoothLEClient extends Plugin {
 					con.put(keyDiscovered, SERVICES_UNDISCOVERED);
 					con.put(keyOperationConnect, call);
 					BluetoothGatt gatt;
-					if(Build.VERSION.SDK_INT >= 23){
+					/*if(Build.VERSION.SDK_INT >= 23){
 						Log.d(getLogTag(),"BLE CONNECTGATT LE ONLY");
 						gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback,BluetoothDevice.TRANSPORT_LE);
 					}else{
 						Log.d(getLogTag(),"BLE CONNECTGATT AUTO(?)");
 						gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback);
-					}
+					}*/
+					gatt = device.connectGatt(BluetoothLEClient.this.getContext(), false, BluetoothLEClient.this.bluetoothGattCallback);
 					con.put(keyPeripheral, gatt);
 					connections.put(device.getAddress(), con);
 					Log.d(getLogTag(),"NEW CONNECTION: "+con.toString());
@@ -561,6 +625,7 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void connect(PluginCall call) {
+		BluetoothLEClient.this.packet = new int[0];
 		String id = call.getString(keyAddress);
 		Log.d(getLogTag(),"BLE CONNECT ID: "+id);
 		String name = call.getString("name");
@@ -601,7 +666,7 @@ public class BluetoothLEClient extends Plugin {
 		scanCallback = new BLEScanCallback();
 		Log.d(getLogTag(),"PLUGIN CONNECT 04");
 		ScanSettings settings;
-		if(Build.VERSION.SDK_INT >= 23){
+		/*if(Build.VERSION.SDK_INT >= 23){
 			Log.d(getLogTag(),"SDK >= 23, SO WE WILL USE MATCH MODE AGGRESSIVE AND MATCH ONE AD");
 			settings = new ScanSettings.Builder()
 					.setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
@@ -614,7 +679,10 @@ public class BluetoothLEClient extends Plugin {
 			settings = new ScanSettings.Builder()
 					.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
 					.build();
-		}
+		}*/
+		settings = new ScanSettings.Builder()
+					.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+					.build();
 		Log.d(getLogTag(),"PLUGIN CONNECT 05");
 		currentOperation = "connect";
 		List<ScanFilter> filters = new ArrayList<>();
@@ -703,6 +771,7 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void disconnect(PluginCall call) {
+		BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
 		Log.d(getLogTag(),"DISCONNECT 01");
 		String address = call.getString(keyAddress);
 		if (address == null) {
@@ -712,7 +781,6 @@ public class BluetoothLEClient extends Plugin {
 		}
 		HashMap<String, Object> connection = (HashMap<String, Object>) connections.get(address);
 		if (connection == null) {
-			BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
 			List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
 			for (BluetoothDevice bd : devices) {
 				Log.d(getLogTag(),"ALREADY CONNECTED TO: "+bd.toString());
@@ -730,6 +798,22 @@ public class BluetoothLEClient extends Plugin {
 			call.resolve();
 			return;
 		}
+		BluetoothDevice device = gatt.getDevice();
+		if(device == null){
+			JSObject ret = new JSObject();
+			addProperty(ret, keyDisconnected, true);
+			call.resolve(ret);
+			return;
+		}
+		int connectionState = bluetoothManager.getConnectionState(device,BluetoothProfile.GATT);
+		Log.d(getLogTag(),"GATT CURRENT CONNECTION STATE: "+connectionState);
+		if(connectionState == BluetoothProfile.STATE_DISCONNECTED){
+			JSObject ret = new JSObject();
+			addProperty(ret, keyDisconnected, true);
+			call.resolve(ret);
+			return;
+		}
+		Log.d(getLogTag(),"GATT: "+gatt.toString());
 		call.save();
 		gatt.disconnect();
 		return;
@@ -754,6 +838,7 @@ public class BluetoothLEClient extends Plugin {
 			connection.put(keyOperationDiscover, call);
 		} else {
 			call.reject("Failed to start service discovery");
+			return;
 		}
 	}
 
@@ -762,11 +847,12 @@ public class BluetoothLEClient extends Plugin {
 		Log.d(getLogTag(),"enable 01");
 		if (!bluetoothAdapter.isEnabled()) {
 			Log.d(getLogTag(),"enable 02.1");
-			call.save();
+			saveCall(call);
 			Log.d(getLogTag(),"enable 03");
 			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
 			Log.d(getLogTag(),"enable 04");
-			startActivityForResult(call, enableIntent, REQUEST_ENABLE_BT);
+			getActivity().startActivityForResult(enableIntent,REQUEST_ENABLE_BT);
+			//startActivityForResult(getActivity(), enableIntent, REQUEST_ENABLE_BT);
 			Log.d(getLogTag(),"enable 05");
 		}else{
 			Log.d(getLogTag(),"enable 02.2");
@@ -979,14 +1065,40 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void hasPermissions(PluginCall call){
-		if (!hasRequiredPermissions()) {
+		Log.d(getLogTag(),"HAS PERMISSIONS...");
+		if (!hasAllPermissions()) {
+			Log.d(getLogTag(),"NEED PERMISSIONS...");
 			saveCall(call);
 			pluginRequestAllPermissions();
 		}else{
+			Log.d(getLogTag(),"WONT NEED PERMISSIONS...");
 			JSObject ret = new JSObject();
 			ret.put("isAllowed",true);
 			call.resolve(ret);
 		}
+	}
+
+	private boolean hasAllPermissions() {
+		PackageManager mPackageManager = getActivity().getPackageManager();
+		PluginHandle handle = getPluginHandle();
+		NativePlugin annotation = handle.getPluginAnnotation();
+		String[] permissions = annotation.permissions();
+		for(int i=0;i<permissions.length;i++) {
+			String permission = permissions[i];
+			int status;
+			if(Build.VERSION.SDK_INT >= 23){
+				status = getActivity().checkSelfPermission(permission);
+			}else{
+				status = mPackageManager.checkPermission(permission,getActivity().getPackageName());
+			}
+			if(status != PackageManager.PERMISSION_GRANTED){
+				Log.d(getLogTag(),"NO PERMISSION: "+permission);
+				return false;
+			}else{
+				Log.d(getLogTag(),"I HAVE PERMISSION: "+permission);
+			}
+		}
+		return true;
 	}
 
 	@PluginMethod()
@@ -1192,6 +1304,23 @@ public class BluetoothLEClient extends Plugin {
 	}
 
 	@PluginMethod()
+	private void setBytes(PluginCall call){
+		String firstByte = call.getString(keyFirstByte);
+		String lastByte = call.getString(keyLastByte);
+		if(firstByte == null || lastByte == null){
+			call.reject(keyErrorBytesMissing);
+			return;
+		}
+		this.setByteStrings(firstByte, lastByte);
+		call.resolve();
+	}
+
+	private void setByteStrings(String firstByte, String lastByte){
+		this.firstByte = firstByte;
+		this.lastByte = lastByte;
+	}
+
+	@PluginMethod()
 	public void write(PluginCall call) {
 		String address = call.getString(keyAddress);
 		if (address == null) {
@@ -1288,7 +1417,6 @@ public class BluetoothLEClient extends Plugin {
 			Log.d(getLogTag(),"STOP SCAN RETURNING ERROR");
 			ret.put(keyConnected, false);
 			savedCall.reject(keyErrorConnectTimeout);
-			savedCall.release(getBridge());
 		}
 		return;
 	}
@@ -1395,24 +1523,29 @@ public class BluetoothLEClient extends Plugin {
 	@Override
 	protected void handleOnActivityResult(int requestCode, int resultCode, Intent data) {
 		super.handleOnActivityResult(requestCode, resultCode, data);
-		Log.i(getLogTag(), "handleOnActivityResult... requestCode: " + String.valueOf(requestCode));
-		Log.i(getLogTag(), "handleOnActivityResult... resultCode: " + String.valueOf(resultCode));
+		Log.d(getLogTag(), "handleOnActivityResult... requestCode: " + String.valueOf(requestCode));
+		Log.d(getLogTag(), "handleOnActivityResult... resultCode: " + String.valueOf(resultCode));
+		PluginCall call = getSavedCall();
+		if (call == null) {
+			Log.d(getLogTag(),"CALL IS NULL...");
+			return;
+		}
 		if (requestCode == REQUEST_ENABLE_BT) {
-			PluginCall call = getSavedCall();
-			if (call == null) {
-				Log.d(getLogTag(),"CALL IS NULL...");
-				return;
-			}
 			Log.d(getLogTag(),"CALL IS NOT NULL...");
 			JSObject ret = new JSObject();
 			addProperty(ret, keyEnabled, resultCode == 0 ? false : true);
 			Log.d(getLogTag(),"SENDING: "+ret.toString());
 			call.resolve(ret);
-			call.release(getBridge());
 		}
 	}
 
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		Log.d(getLogTag(), "onActivityResult... requestCode: " + String.valueOf(requestCode));
+		Log.d(getLogTag(), "onActivityResult... resultCode: " + String.valueOf(resultCode));
+	}
+
 	protected void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+		Log.d(getLogTag(),"handleRequestPermissionsResult... requestCode: "+requestCode);
 		super.handleRequestPermissionsResult(requestCode, permissions, grantResults);
 		PluginCall savedCall = getSavedCall();
 		if(savedCall == null){
@@ -1429,7 +1562,6 @@ public class BluetoothLEClient extends Plugin {
 			}
 			ret.put("isAllowed",isAllowed);
 			savedCall.resolve(ret);
-			savedCall.release(getBridge());
 		}
 	}
 
