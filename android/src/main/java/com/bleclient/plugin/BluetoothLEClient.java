@@ -1,6 +1,8 @@
+
 package com.bleclient.plugin;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -18,6 +20,7 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -26,6 +29,10 @@ import android.os.ParcelUuid;
 import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.NativePlugin;
@@ -48,7 +55,6 @@ import java.util.UUID;
 		permissions = {
 				Manifest.permission.BLUETOOTH,
 				Manifest.permission.BLUETOOTH_ADMIN,
-				Manifest.permission.ACCESS_COARSE_LOCATION,
 				Manifest.permission.ACCESS_FINE_LOCATION
 		},
 		requestCodes = {
@@ -1065,17 +1071,63 @@ public class BluetoothLEClient extends Plugin {
 
 	@PluginMethod()
 	public void hasPermissions(PluginCall call){
+		currentOperation = "hasPermissions";
+		Log.d(getLogTag(),"WHAT IS MY ACTIVITY: "+getActivity().getClass().getName());
 		Log.d(getLogTag(),"HAS PERMISSIONS...");
 		if (!hasAllPermissions()) {
 			Log.d(getLogTag(),"NEED PERMISSIONS...");
 			saveCall(call);
-			pluginRequestAllPermissions();
+			String message = "Este aplicativo coleta dados de localização para permitir a compra através das máquinas Purificatta, mesmo quando o aplicativo está fechado ou não em uso.\n Não utilizaremos seus dados para nenhum outro uso.";
+			if(call.getString("disclosure_message") != null){
+				message = call.getString("disclosure_message");
+			}
+			String title = "Usar sua localização";
+			if(call.getString("disclosure_title") != null){
+				title = call.getString("disclosure_title");
+			}
+			this.showLocationProminentDisclosure(message, title,
+					new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							switch(which){
+								case DialogInterface.BUTTON_NEGATIVE:
+								case DialogInterface.BUTTON_NEUTRAL:
+									dialog.dismiss();
+									JSObject ret = new JSObject();
+									ret.put("isAllowed",false);
+									call.resolve(ret);
+									break;
+								case DialogInterface.BUTTON_POSITIVE:
+									dialog.dismiss();
+									pluginRequestPermission(Manifest.permission.ACCESS_FINE_LOCATION, REQUEST_LOCATION_PERMISSIONS);
+							}
+						}
+					}
+			);
+			//requestAllPermissions();
 		}else{
 			Log.d(getLogTag(),"WONT NEED PERMISSIONS...");
 			JSObject ret = new JSObject();
 			ret.put("isAllowed",true);
 			call.resolve(ret);
 		}
+	}
+
+	public void requestAllPermissions(){
+		NativePlugin annotation = handle.getPluginAnnotation();
+		ActivityCompat.requestPermissions(getActivity(), annotation.permissions(), annotation.permissionRequestCode());
+	}
+
+	private void showLocationProminentDisclosure(String message, String title,
+	DialogInterface.OnClickListener onClick){
+		AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+		builder.setCancelable(false)
+			.setMessage(message)
+			.setNegativeButton("Cancelar", onClick)
+			.setPositiveButton("OK", onClick)
+			.setTitle(title);
+		AlertDialog alert = builder.create();
+		alert.show();
 	}
 
 	private boolean hasAllPermissions() {
@@ -1544,9 +1596,10 @@ public class BluetoothLEClient extends Plugin {
 		Log.d(getLogTag(), "onActivityResult... resultCode: " + String.valueOf(resultCode));
 	}
 
+	@Override
 	protected void handleRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-		Log.d(getLogTag(),"handleRequestPermissionsResult... requestCode: "+requestCode);
 		super.handleRequestPermissionsResult(requestCode, permissions, grantResults);
+		Log.d(getLogTag(),"handleRequestPermissionsResult... requestCode: "+requestCode);
 		PluginCall savedCall = getSavedCall();
 		if(savedCall == null){
 			return;
