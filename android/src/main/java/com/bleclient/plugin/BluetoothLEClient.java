@@ -1,4 +1,5 @@
 
+
 package com.bleclient.plugin;
 
 import android.Manifest;
@@ -1077,7 +1078,7 @@ public class BluetoothLEClient extends Plugin {
 		if (!hasAllPermissions()) {
 			Log.d(getLogTag(),"NEED PERMISSIONS...");
 			saveCall(call);
-			String message = "Este aplicativo coleta dados de localização para permitir a compra através das máquinas Purificatta, mesmo quando o aplicativo está fechado ou não em uso.\n Não utilizaremos seus dados para nenhum outro uso.";
+			String message = "Este aplicativo coleta dados de localização para permitir a compra através das máquinas Purificatta, mesmo quando o aplicativo está fechado ou não em uso.\nNão utilizaremos seus dados para nenhum outro uso.";
 			if(call.getString("disclosure_message") != null){
 				message = call.getString("disclosure_message");
 			}
