@@ -43,7 +43,7 @@ public class BluetoothLEClient: CAPPlugin {
 		if(bleHandler == nil){
 			print("INICIANDO BLEHANDLER!");
 			bleHandler = BLEHandler();
-			bleHandler.pluginRef = self;
+            bleHandler!.pluginRef = self;
         }
 	}
 
@@ -133,18 +133,28 @@ public class BluetoothLEClient: CAPPlugin {
             call.reject(errorNoName);
             return;
         }
-        let service = call.getString("service") ?? "";
-        if(service == ""){
+        let serviceInt = call.getInt("service") ?? nil;
+        if(serviceInt == nil){
             CAPLog.print("Deve informar o serviço.");
             call.reject(errorNoServices);
             return ;
         }
-        let characteristic = call.getString("characteristic") ?? "";
+        let service = String(format: "%04X",serviceInt!);
+        print("ENABLE NOTIFICATIONS FOR SERVICE: "+service);
+        let characteristicInt = call.getInt("characteristic") ?? nil;
+        if(characteristicInt == nil){
+            CAPLog.print("Deve informar a cara.");
+            call.reject(errorNoServices);
+            return ;
+        }
+        let characteristic = String(format: "%04X",characteristicInt!);
+        print("ENABLE NOTIFICATIONS FOR CHARACTERISTIC: "+characteristic);
+        /*let characteristic = call.getString("characteristic") ?? "";
         if(characteristic == ""){
             CAPLog.print("Deve informar a caracteristica.");
             call.reject(errorNoCharacteristic);
             return;
-        }
+        }*/
         bleHandler?.enableNotifications(call: call, name: name, service: service, characteristic: characteristic);
     }
     @objc func getCharacteristic (_ call: CAPPluginCall) {
@@ -302,14 +312,17 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 	var errorNotFound: String = "NOT_FOUND";
 	var errorNotFoundCharacteristic: String = "NOT_FOUND_CHARACTERISTIC";
 	var errorNotFoundService: String = "NOT_FOUND_SERVICE";
+    var firstByte = "CC";
+    var lastByte = "CF";
     var filterServices: [CBUUID]?;
     var myPeripheral: CBPeripheral?;
+    var packet: [Int] = [Int]();
     var possibleDevices: [CBPeripheral]? = [];
 	//var notificationCall: CAPPluginCall?;
     var readCall: CAPPluginCall?;
     var scanCall: CAPPluginCall?;
     var writeCall: CAPPluginCall?;
-	var pluginRef: CAPPlugin;
+	var pluginRef: CAPPlugin?;
 
     override init(){
         super.init();
@@ -478,32 +491,73 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 break;
         }
     }
+    func runClearPacket(){
+        self.packet = [Int]();
+    }
+    func runNotificationCheck(_ eventName: String,_ unsignedBytes: [Int]){
+        let expectedFirstByte = Int(self.firstByte, radix: 16);
+        let expectedLastByte = Int(self.lastByte, radix: 16);
+        //let expectedFirstByte = UInt8(self.firstByte, radix: 16);
+        //let expectedLastByte = UInt8(self.lastByte, radix: 16);
+        let firstByte = unsignedBytes.first;
+        let lastByte = unsignedBytes.last;
+        if(expectedFirstByte == firstByte && expectedLastByte == lastByte){
+            //IT IS A FULL PACKET, SO NOTIFY IT AND CLEAR IT
+            respondNotification(eventName, unsignedBytes);
+            runClearPacket();
+        }else if(expectedFirstByte == firstByte){
+            packet = unsignedBytes;
+            //IT IS THE FIRST PART OF A PACKET, SO SET ITS VALUE AND DO NOT NOTIFY
+        }else if(expectedLastByte == lastByte){
+            respondNotification(eventName, concatArray(packet,unsignedBytes));
+            runClearPacket();
+        }else {
+            packet = concatArray(packet, unsignedBytes);
+        }
+    }
+    func respondNotification(_ eventName: String,_ packet: [Int]){
+        pluginRef!.notifyListeners(eventName,data:["value": packet]);
+    }
+    func concatArray(_ a: [Int],_ b: [Int]) -> [Int]{
+        return a + b;
+    }
     //ATUALIZOU CARACTERISTICA
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        let dd = characteristic.value!;
-        let value = String(data: dd, encoding: String.Encoding.ascii)!;
-        var bytes: [Int] = [];
-        for (index,_) in value.enumerated() {
-            let byte: Int = value.charCodeAt(index: index);
-            bytes.append(byte);
-        }
-        switch(currentOperation){
-            case "read":
-                if(readCall != nil){
-					pluginRef.notifyListeners(characteristic.uuid.uuidString,bytes);
-                    var ret = [String: Any]()
-                    ret["value"] = bytes;
-                    readCall?.resolve(ret);
-                    readCall = nil;
-                }/*else if(notificationCall != nil){
-					 var ret = [String: Any]()
-                    ret["value"] = bytes;
-                    notificationCall?.resolve(ret);
-                    notificationCall = nil;
-				}*/
-                break;
-            default:
-                break;
+        if(error != nil){
+            
+        }else{
+            let dd = characteristic.value!;
+            let value = String(data: dd, encoding: String.Encoding.ascii)!;
+            var bytes: [Int] = [];
+            for (index,_) in value.enumerated() {
+                let byte: Int = value.charCodeAt(index: index);
+                bytes.append(byte);
+            }
+            switch(currentOperation){
+                case "read":
+                    if(readCall != nil){
+                        pluginRef!.notifyListeners(characteristic.uuid.uuidString,data:["value": bytes]);
+                        var ret = [String: Any]()
+                        ret["value"] = bytes;
+                        readCall?.resolve(ret);
+                        readCall = nil;
+                    }/*else if(notificationCall != nil){
+                         var ret = [String: Any]()
+                        ret["value"] = bytes;
+                        notificationCall?.resolve(ret);
+                        notificationCall = nil;
+                    }*/
+                    break;
+                default:
+                    //print("VAMOS NOTIFICAR DEFAULT: "+characteristic.uuid.uuidString);
+                    let eventName = UInt16(characteristic.uuid.uuidString, radix: 16);
+                    //print("VAMOS NOTIFICAR INT: "+eventName!.description);
+                    print("NOTIFICAR LISTENER "+eventName!.description);
+                    runNotificationCheck(eventName!.description,bytes);
+                    //pluginRef!.notifyListeners(characteristic.uuid.uuidString,data:["value": bytes]);
+                    //pluginRef!.notifyListeners(x!.description,data:["value": bytes]);
+                    break;
+            }
         }
     }
     //MUDANÇA DE ESTADO
@@ -558,7 +612,7 @@ class BLEHandler: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
 					//notificationCall = call;
 					//notificationCall?.save();
 					validPeripheral?.readValue(for: c!);
-					validPeripheral?.setNotifyValue(true, forCharacteristic: c);
+                    validPeripheral?.setNotifyValue(true, for: c!);
 					call.resolve();
                 }
                 return;
